@@ -1,0 +1,9 @@
+# macOS system junk
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Google API secrets
+credentials.json
