@@ -57,11 +57,11 @@ def authorize_google_sheet():
     client = gspread.authorize(creds)
     return client.open(SPREADSHEET_NAME).worksheet(WORKSHEET_NAME)
 
-# === STEP 3: Fetch Top 3 eBay Listings and Return Average Price ===
+# === STEP 3: Fetch Top 3 New eBay Listings and Return Average Price ===
 
 def get_price_from_ebay(access_token, toy_number, model_name):
-    query = f"{toy_number} {model_name}"
-    url = f"https://api.ebay.com/buy/browse/v1/item_summary/search?q={query}&limit=3&filter=buyingOptions:FIXED_PRICE"
+    query = f"{toy_number} {model_name} carded"
+    url = f"https://api.ebay.com/buy/browse/v1/item_summary/search?q={query}&limit=3&filter=buyingOptions:FIXED_PRICE,conditionIds:1000"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
