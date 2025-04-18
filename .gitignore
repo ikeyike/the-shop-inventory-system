@@ -5,8 +5,9 @@
 __pycache__/
 *.pyc
 
-# Google API secrets
+# Google  and eBay API secrets
 credentials.json
+.env
 
 # Ignore Python virtual environments
 venv/

@@ -17,6 +17,7 @@ CREDENTIALS_FILE = "credentials.json"
 SPREADSHEET_NAME = "Hot Wheels and Matchbox Inventory"
 WORKSHEET_NAME = "Inventory"
 TOY_COL = "Toy #"
+MODEL_COL = "Model Name"
 PRICE_COL = "eBay API Price"
 
 # === STEP 1: Authenticate with eBay API ===
@@ -56,26 +57,35 @@ def authorize_google_sheet():
     client = gspread.authorize(creds)
     return client.open(SPREADSHEET_NAME).worksheet(WORKSHEET_NAME)
 
-# === STEP 3: Fetch Price from eBay API ===
+# === STEP 3: Fetch Top 3 eBay Listings and Return Lowest Price ===
 
-def get_price_from_ebay(access_token, toy_number):
-    url = f"https://api.ebay.com/buy/browse/v1/item_summary/search?q={toy_number}&limit=1&filter=buyingOptions:FIXED_PRICE"
+def get_price_from_ebay(access_token, toy_number, model_name):
+    query = f"{toy_number} {model_name}"
+    url = f"https://api.ebay.com/buy/browse/v1/item_summary/search?q={query}&limit=3&filter=buyingOptions:FIXED_PRICE"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
+
     try:
         res = requests.get(url, headers=headers)
         data = res.json()
-        if "itemSummaries" in data and len(data["itemSummaries"]) > 0:
-            item = data["itemSummaries"][0]
-            price = item["price"]["value"]
-            currency = item["price"]["currency"]
-            return f"${price} {currency}"
-        else:
-            return None
+        prices = []
+        if "itemSummaries" in data:
+            print(f"🔍 Results for: {query}")
+            for item in data["itemSummaries"]:
+                title = item.get("title", "No title")
+                link = item.get("itemWebUrl", "No link")
+                price = item["price"]["value"]
+                currency = item["price"]["currency"]
+                prices.append(float(price))
+                print(f" → ${price} {currency} | {title}")
+                print(f"    {link}")
+            if prices:
+                return f"${min(prices)} {currency}"  # or use average: sum(prices)/len(prices)
+        return None
     except Exception as e:
-        print(f"Error fetching price for {toy_number}: {e}")
+        print(f"Error fetching eBay listings for {toy_number}: {e}")
         return None
 
 # === STEP 4: Run Everything ===
@@ -91,18 +101,18 @@ def run():
     headers = sheet.row_values(1)
 
     toy_col_idx = headers.index(TOY_COL) + 1
+    model_col_idx = headers.index(MODEL_COL) + 1
     price_col_idx = headers.index(PRICE_COL) + 1
     rows = sheet.get_all_values()
 
     for idx, row in enumerate(rows[1:], start=2):  # Skip header
         toy_number = row[toy_col_idx - 1].split("-")[0].strip()
+        model_name = row[model_col_idx - 1].strip()
         current_price = row[price_col_idx - 1].strip() if len(row) >= price_col_idx else ""
 
-        if toy_number and not current_price:
-            print(f"🔍 Looking up: {toy_number}")
-            price = get_price_from_ebay(token, toy_number)
+        if toy_number and model_name and not current_price:
+            price = get_price_from_ebay(token, toy_number, model_name)
             if price:
-                print(f" → Found: {price}")
                 sheet.update_cell(idx, price_col_idx, price)
             else:
                 print(" → No price found.")
