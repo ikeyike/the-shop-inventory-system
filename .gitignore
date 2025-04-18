@@ -15,3 +15,15 @@ the_shop_scripts/venv/
 
 #eBay API token for price lookup
 token.txt
+
+# IDE junk (VS Code, PyCharm, etc.)
+.vscode/
+.idea/
+
+# CSV or log output from script runs
+*.csv
+*.log
+
+# Car helper 
+toy_metadata.py
+run_toy_lookup_clean.py

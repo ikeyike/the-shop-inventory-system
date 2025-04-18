@@ -8,7 +8,7 @@ from googleapiclient.http import MediaFileUpload
 SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_FILE = 'credentials.json'
 SPREADSHEET_ID = '135derlsER5TZEdZ7kEIJQQ1G1Z6thpZfydFsnqkb9EM'
-SHEET_NAME = '2008HotWheels'
+SHEET_NAME = 'Inventory'
 ID_COLUMN = 'A'
 IMAGE_COLUMNS = ['M', 'N', 'O', 'P', 'Q']  # Photo links start at column M (after your existing columns A–L)
 
