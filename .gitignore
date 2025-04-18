@@ -11,3 +11,6 @@ credentials.json
 # Ignore Python virtual environments
 venv/
 the_shop_scripts/venv/
+
+#eBay API token for price lookup
+token.txt
