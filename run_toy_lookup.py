@@ -2,6 +2,7 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from toy_metadata import get_product_info
+import time
 
 # -------------------- SETUP --------------------
 
@@ -22,48 +23,46 @@ columns_to_fill = [
 ]
 
 headers = sheet.row_values(1)
-col_indices = {col: headers.index(col) + 1 for col in columns_to_fill}
+
+col_indices = {}
+missing_columns = []
+
+for col in columns_to_fill:
+    if col in headers:
+        col_indices[col] = headers.index(col) + 1
+    else:
+        missing_columns.append(col)
+
+if missing_columns:
+    print("⚠️ Skipping missing columns:", ", ".join(missing_columns))
+
 toy_col_index = headers.index("Toy #") + 1
-
-# -------------------- MAIN --------------------
-
-toy_number = input("Enter Toy #: ").strip()
-if not toy_number:
-    print("❌ No Toy # entered. Exiting.")
-    exit()
-
-scraped_info = get_product_info(toy_number)
-if not scraped_info:
-    print("⚠️ No data found.")
-    exit()
-
-print("\n✅ Data found:")
-for k, v in scraped_info.items():
-    print(f"{k}: {v}")
-
-# Find matching row in Google Sheet
 records = sheet.get_all_records()
-row_to_update = None
 
-for idx, row in enumerate(records, start=2):  # start=2 for 1-based indexing and skipping header
-    if str(row.get("Toy #")).strip().lower() == toy_number.lower():
-        row_to_update = idx
-        break
+# -------------------- MAIN LOOP --------------------
 
-if not row_to_update:
-    print("⚠️ No matching row with this Toy # found in your Google Sheet.")
-    exit()
+for idx, row in enumerate(records, start=2):  # skip header row
+    toy_number = str(row.get("Toy #", "")).strip()
+    if not toy_number:
+        continue
 
-confirm = input("\nDo you want to update this row with the data? (y/n): ").strip().lower()
-if confirm != "y":
-    print("❌ Canceled. No changes made.")
-    exit()
+    needs_update = any(not row.get(col) for col in col_indices.keys())
+    if not needs_update:
+        continue
 
-# Update Google Sheet
-for col, value in scraped_info.items():
-    if col in columns_to_fill and value:
-        existing_value = sheet.cell(row_to_update, col_indices[col]).value
-        if not existing_value:
-            sheet.update_cell(row_to_update, col_indices[col], value)
+    print(f"🔍 Fetching: Toy # {toy_number} (Row {idx})")
+    data = get_product_info(toy_number)
+    time.sleep(2)  # polite delay
 
-print(f"✅ Updated row {row_to_update} with product info for Toy #: {toy_number}")
+    if not data:
+        print(f"⚠️ No data found for Toy #: {toy_number}")
+        continue
+
+    for col, value in data.items():
+        if col in col_indices and value and not row.get(col):
+            sheet.update_cell(idx, col_indices[col], value)
+            print(f"  ➤ Updated '{col}'")
+
+    print(f"✅ Row {idx} updated for Toy #: {toy_number}")
+
+print("🎉 Done updating all rows.")
