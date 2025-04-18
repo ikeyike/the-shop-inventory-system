@@ -14,7 +14,7 @@ CLIENT_SECRET = os.getenv("EBAY_CLIENT_SECRET")
 
 # === CONFIG ===
 CREDENTIALS_FILE = "credentials.json"
-SPREADSHEET_NAME = "Hot Wheels and Matchbox Inventory"
+SPREADSHEET_NAME = "Your Spreadsheet Name Here"
 WORKSHEET_NAME = "Inventory"
 TOY_COL = "Toy #"
 MODEL_COL = "Model Name"
@@ -57,7 +57,7 @@ def authorize_google_sheet():
     client = gspread.authorize(creds)
     return client.open(SPREADSHEET_NAME).worksheet(WORKSHEET_NAME)
 
-# === STEP 3: Fetch Top 3 eBay Listings and Return Lowest Price ===
+# === STEP 3: Fetch Top 3 eBay Listings and Return Average Price ===
 
 def get_price_from_ebay(access_token, toy_number, model_name):
     query = f"{toy_number} {model_name}"
@@ -82,7 +82,8 @@ def get_price_from_ebay(access_token, toy_number, model_name):
                 print(f" → ${price} {currency} | {title}")
                 print(f"    {link}")
             if prices:
-                return f"${min(prices)} {currency}"  # or use average: sum(prices)/len(prices)
+                avg_price = round(sum(prices) / len(prices), 2)
+                return f"${avg_price} {currency}"
         return None
     except Exception as e:
         print(f"Error fetching eBay listings for {toy_number}: {e}")
@@ -108,9 +109,8 @@ def run():
     for idx, row in enumerate(rows[1:], start=2):  # Skip header
         toy_number = row[toy_col_idx - 1].split("-")[0].strip()
         model_name = row[model_col_idx - 1].strip()
-        current_price = row[price_col_idx - 1].strip() if len(row) >= price_col_idx else ""
 
-        if toy_number and model_name and not current_price:
+        if toy_number and model_name:
             price = get_price_from_ebay(token, toy_number, model_name)
             if price:
                 sheet.update_cell(idx, price_col_idx, price)
