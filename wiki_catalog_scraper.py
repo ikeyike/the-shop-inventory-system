@@ -1,4 +1,3 @@
-
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import requests
@@ -7,11 +6,12 @@ import csv
 import time
 from datetime import datetime
 import re
+import urllib.parse
 
 # -------------------- CONFIG --------------------
 
-SPREADSHEET_NAME = "TheShopInventory"
-WORKSHEET_NAME = "Inventory"
+SPREADSHEET_NAME = "Hot Wheels and Matchbox Inventory"
+WORKSHEET_NAME = "Test"
 CREDENTIALS_FILE = "credentials.json"
 LOG_FILE = "wiki_update_log.csv"
 
@@ -51,7 +51,9 @@ def google_fallback_search(model_name, brand):
     soup = BeautifulSoup(response.text, "html.parser")
     first_result = soup.select_one("a[href*='fandom.com/wiki/']")
     if first_result:
-        return first_result["href"]
+        raw_url = first_result["href"]
+        clean_url = urllib.parse.parse_qs(urllib.parse.urlparse(raw_url).query).get("q", [None])[0]
+        return clean_url
     return None
 
 def fetch_wiki_data(model_name, brand, year, expected_series):
@@ -74,9 +76,8 @@ def fetch_wiki_data(model_name, brand, year, expected_series):
 
     soup = BeautifulSoup(response.text, "html.parser")
     info = {}
-    series_match = expected_series == ""  # accept all if no expected value
+    series_match = expected_series == ""
 
-    # Try infobox rows
     for row in soup.select("aside div.pi-item"):
         label_elem = row.select_one("h3.pi-data-label")
         value_elem = row.select_one("div.pi-data-value")
@@ -126,12 +127,11 @@ def log_update(row_idx, brand, model_name, year, wiki_url, fields_updated):
 
 # -------------------- MAIN PROCESS --------------------
 
-# Setup CSV log file with headers
 with open(LOG_FILE, "w", newline="") as f:
     writer = csv.writer(f)
     writer.writerow(["Timestamp", "Row", "Brand", "Model Name", "Year", "Wiki URL", "Fields Updated"])
 
-for idx, row in enumerate(records, start=2):  # skip header
+for idx, row in enumerate(records, start=2):
     brand = str(row.get("Brand", "")).strip()
     model = str(row.get("Model Name", "")).strip()
     year = str(row.get("Year", "")).strip()
