@@ -1,10 +1,13 @@
+
 import os
 import subprocess
+import csv
 from shutil import copy2, move
 from PIL import Image
 
 TESTING_MODE = True
 INVALID_LOG = "invalid_images.log"
+PROCESSED_LOG = "processed_images.csv"
 
 GOOGLE_DRIVE_UPLOADS = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
 ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
@@ -29,6 +32,12 @@ def log_invalid_image(path):
     with open(INVALID_LOG, "a") as f:
         f.write(path + "\n")
     print(f"❌ Invalid image skipped: {path}")
+
+def log_processed_folder(folder_name):
+    with open(PROCESSED_LOG, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([folder_name])
+    print(f"📝 Logged processed folder: {folder_name}")
 
 def rename_and_organize_images(raw_folder, organized_folder):
     folder_name = os.path.basename(raw_folder.rstrip("/"))
@@ -60,6 +69,8 @@ def rename_and_organize_images(raw_folder, organized_folder):
             else:
                 move(src, dst)
                 print(f"Moved and deleted original: {src} -> {dst}")
+
+    log_processed_folder(folder_name)
 
 if __name__ == "__main__":
     for folder in os.listdir(GOOGLE_DRIVE_UPLOADS):
