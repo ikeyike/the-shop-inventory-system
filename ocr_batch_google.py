@@ -1,38 +1,76 @@
 
-from google.cloud import vision
-from google.oauth2 import service_account
-import io
 import os
 import re
+import shutil
+from google.cloud import vision
+from PIL import Image
 
-# Setup credentials
-CREDENTIAL_PATH = "google_vision_key.json"  # Ensure this is the correct path
-credentials = service_account.Credentials.from_service_account_file(CREDENTIAL_PATH)
-client = vision.ImageAnnotatorClient(credentials=credentials)
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
+client = vision.ImageAnnotatorClient()
 
-# Folder to scan
-IMAGE_FOLDER = "ocr_images"  # Change this if needed
-SUPPORTED_FORMATS = (".jpg", ".jpeg", ".png", ".heic")
+OCR_INPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/ocr_images"
+OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
+UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched_images"
+PROCESSED_LOG = "/Users/naomiabella/Desktop/the_shop_inventory/processed_log.txt"
 
 def extract_toy_number(text):
-    return re.findall(r"\b([A-Z]{1}\d{4,5}|\d{5})\b", text)
+    match = re.search(r"\b([A-Z0-9]{5,})[-]", text, re.IGNORECASE)
+    if match:
+        return match.group(1).upper()
+    return None
 
-def process_images():
-    for file in os.listdir(IMAGE_FOLDER):
-        if file.lower().endswith(SUPPORTED_FORMATS):
-            path = os.path.join(IMAGE_FOLDER, file)
-            with io.open(path, "rb") as image_file:
-                content = image_file.read()
-            image = vision.Image(content=content)
-            response = client.document_text_detection(image=image)
+def ocr_text_from_image(image_path):
+    with open(image_path, "rb") as img_file:
+        content = img_file.read()
+    image = vision.Image(content=content)
+    response = client.text_detection(image=image)
+    return response.full_text_annotation.text if response.text_annotations else ""
 
-            if response.error.message:
-                print(f"⚠️ Error in {file}: {response.error.message}")
-                continue
+def log_processed_image(path):
+    with open(PROCESSED_LOG, "a") as f:
+        f.write(path + "\n")
 
-            text = response.full_text_annotation.text
-            matches = extract_toy_number(text)
-            print(f"{file} ➜ {matches[0] if matches else '❌ No toy number found'}")
+def move_to_unmatched(images):
+    os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
+    for img in images:
+        dest = os.path.join(UNMATCHED_FOLDER, os.path.basename(img))
+        shutil.move(img, dest)
+        print(f"❌ Moved unmatched image to: {dest}")
+        log_processed_image(img)
+
+def process_batch(images):
+    texts = [ocr_text_from_image(img) for img in images]
+    toy_numbers = [extract_toy_number(text) for text in texts]
+
+    for i, toy in enumerate(toy_numbers):
+        if toy:
+            id = toy
+            other = images[1 - i]
+            labeled_images = [(other, f"{id}_1.jpg"), (images[i], f"{id}_2.jpg")]
+            target_folder = os.path.join(OUTPUT_FOLDER, id)
+            os.makedirs(target_folder, exist_ok=True)
+            for img_src, name in labeled_images:
+                dst = os.path.join(target_folder, name)
+                shutil.move(img_src, dst)
+                log_processed_image(img_src)
+                print(f"✅ Moved: {img_src} -> {dst}")
+            return
+    print("⚠️ No toy number detected in batch.")
+    move_to_unmatched(images)
+
+def main():
+    files = sorted([os.path.join(OCR_INPUT_FOLDER, f)
+                    for f in os.listdir(OCR_INPUT_FOLDER)
+                    if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))])
+
+    for i in range(0, len(files), 2):
+        batch = files[i:i + 2]
+        if len(batch) == 2:
+            print(f"📸 Processing batch: {batch}")
+            process_batch(batch)
+        else:
+            print(f"⚠️ Incomplete batch: {batch}")
+            move_to_unmatched(batch)
 
 if __name__ == "__main__":
-    process_images()
+    main()
