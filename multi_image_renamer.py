@@ -3,9 +3,11 @@ import subprocess
 from shutil import copy2, move
 from PIL import Image
 
-# Toggle this to True when testing — prevents deleting images
 TESTING_MODE = True
 INVALID_LOG = "invalid_images.log"
+
+GOOGLE_DRIVE_UPLOADS = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
+ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 
 def convert_heic_to_jpg_with_sips(heic_path, jpg_path):
     result = subprocess.run(["sips", "-s", "format", "jpeg", heic_path, "--out", jpg_path],
@@ -60,6 +62,8 @@ def rename_and_organize_images(raw_folder, organized_folder):
                 print(f"Moved and deleted original: {src} -> {dst}")
 
 if __name__ == "__main__":
-    RAW_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads/M6916-0918K"
-    ORG_FOLDER = "/Users/naomiabella/Desktop/TheShopInventory/OrganizedImages"
-    rename_and_organize_images(RAW_FOLDER, ORG_FOLDER)
+    for folder in os.listdir(GOOGLE_DRIVE_UPLOADS):
+        full_path = os.path.join(GOOGLE_DRIVE_UPLOADS, folder)
+        if os.path.isdir(full_path):
+            print(f"📦 Processing folder: {folder}")
+            rename_and_organize_images(full_path, ORG_FOLDER)
