@@ -8,22 +8,22 @@
 - [🔧 Setup Instructions](#-setup-instructions)
 - [📌 Changelog](#-changelog)
 
-An automated photo-to-spreadsheet system to catalog diecast cars (Hot Wheels, Matchbox, etc.) using your iPhone, Google Drive, Python, Google Sheets, and wiki-powered AI scraping.
+An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels, Matchbox, etc.). Designed for speed, accuracy, and full automation using iPhone photos, Google Drive, OCR (Vision AI), Python scripts, and a smart Google Sheet.
 
 ---
 
 ## ✅ Features
 
-- Auto-detect image batches from Google Drive sync
-- Rename & organize images using product IDs (e.g., M6916-0918K)
-- Convert `.HEIC` → `.JPG` using macOS `sips`
-- Upload renamed images to Drive
-- Auto-update Google Sheets with photo links
-- Fully automated `watch_folder.py` that runs with no manual input
-- Automatically fetches catalog info from Hot Wheels & Matchbox Wikis
-- Fuzzy Series matching for accuracy
-- Logs all updates to a CSV file
-- Works with iPhone and team collaboration
+- OCR scans for toy numbers (e.g., `M6916-0918K`) from packaging
+- Automatically groups front/back images by detected ID
+- Renames & organizes photos into `organized_images/[ID]/`
+- Converts `.HEIC` → `.JPG` using macOS `sips`
+- Skips invalid or corrupted image files
+- Auto-upload to Google Drive with public links
+- Auto-update your Google Sheet with image URLs
+- Optional: auto-fill catalog data from Hot Wheels & Matchbox Wikis
+- Fully automated via `watch_folder.py`
+- Logs all actions and unmatched photos for review
 
 ---
 
@@ -32,15 +32,16 @@ An automated photo-to-spreadsheet system to catalog diecast cars (Hot Wheels, Ma
 ```
 the_shop_inventory/
 ├── the_shop_scripts/
-│   ├── ebay_api_scraper.py
-│   ├── multi_image_renamer.py
-│   ├── google_sheets_linker.py
+│   ├── ocr_batch_google.py
 │   ├── watch_folder.py
+│   ├── multi_image_renamer.py         # Fallback option if OCR fails
+│   ├── google_sheets_linker.py
 │   ├── wiki_catalog_scraper_v2.py
-│   ├── requirements.txt
-│   └── .python-version
-├── organized_images/
-├── wiki_update_log.csv
+│   ├── processed_images.csv           # 📒 Tracks all handled files
+│   ├── unmatched/                     # 📂 Stores images with no toy # detected
+│   ├── invalid_images.log             # 🧯 Logs corrupted or unreadable images
+├── organized_images/                  # ✅ Final images sorted by product ID
+├── ocr_images/                        # Temporary folder for OCR processing
 └── Google Drive/My Drive/TheShopRawUploads/
 ```
 
@@ -48,51 +49,56 @@ the_shop_inventory/
 
 ## 🚀 How It Works
 
-### 🧾 Step-by-Step Workflow
+### 🧾 Step-by-Step Flow
 
-1. **Prepare Your Photos**  
-   Create a folder named after the product ID (e.g. `M6916-0918K`). Place 3–5 photos of the diecast car in this folder.
+1. **Take Two Photos**
+   - Photo 1: Front of the car (no toy #)
+   - Photo 2: Back of the card (includes toy # like `M6916-0918K`)
 
-2. **Upload to Google Drive**  
-   Upload your folder to `Google Drive > TheShopRawUploads`. Make sure Google Drive sync is running on your Mac.
+2. **Upload via Google Drive**
+   - Just drop both photos into the root of `TheShopRawUploads` on your synced Google Drive
 
-3. **Automation Begins**  
-   `watch_folder.py` will detect the new folder and automatically:
-   - Convert `.HEIC` images to `.JPG` using `sips`
-   - Rename the images using the product ID
-   - Move them to `organized_images/[ProductID]/`
-   - Upload the renamed images to Google Drive
-   - Update the matching row in your Google Sheet (columns M–Q)
+3. **`watch_folder.py` detects 2 new images**
+   - Moves them into `ocr_images/`
+   - Calls `ocr_batch_google.py` to extract toy number via Vision API
+   - If found: splits toy number (e.g. keeps `M6916`), renames as `M6916_1.jpg` and `M6916_2.jpg`
+   - Stores into: `organized_images/M6916/`
 
-4. **Catalog Info & Pricing (Optional but Recommended)**  
-   Depending on your configuration:
-   - `wiki_catalog_scraper_v2.py` will run automatically to fill in missing info like Collector #, Series, Base, etc. using Hot Wheels and Matchbox Wiki pages
-   - `ebay_api_scraper.py` can run next to search eBay listings and insert the average price into your sheet, while saving a local CSV log
+4. **Optionally uploads to Drive**
+   - `google_sheets_linker.py` inserts image URLs into Google Sheet row matching Toy #
+
+5. **Optional Catalog Info (auto or manual)**
+   - `wiki_catalog_scraper_v2.py` fills in metadata like Collector #, Body Color, Country, etc.
+   - Uses fuzzy logic & toy number to match against Wiki pages
+
+6. **Logging**
+   - Processed file paths go into `processed_images.csv`
+   - Missing toy #? Saved to `/unmatched/`
+   - Corrupted file? Logged in `invalid_images.log`
 
 ---
 
 ## 🔧 Setup Instructions
 
-1. Install Python 3.11 via `pyenv` and create `.python-version` with `3.11.8`
-2. Run:
-```bash
-pip install -r requirements.txt
-```
-3. Place `credentials.json` from Google Cloud in the script folder
-4. Share your Google Sheet and Drive folders with your service account
+1. Install Python 3.11 and set `.python-version` to match
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Download your Google Vision and Sheets credentials:
+   - Save them as `google_vision_key.json` and `credentials.json`
+4. Share your Google Drive and Google Sheet with your service account
 
 ---
 
 ## 📌 Changelog
 
-
-- ✅ v1.0 – Manual scripts for rename + upload
-- ✅ v1.2 – Added `sips` HEIC conversion
-- ✅ v2.0 – Folder-based automation via `watch_folder.py`
-- ✅ v2.1 – iOS Shortcut support (tap to stop)
-- ✅ v2.2 – Removed delay for faster detection
-- ✅ v2.3 – Added input fallback for flexible script use
-- ✅ v3.0 – Integrated Hot Wheels + Matchbox Wiki scraper with fuzzy Series match, Google fallback, and CSV logging
-- ✅ v3.1 – Auto-run wiki scraper from `watch_folder.py` via toggle
-- ✅ v3.2 – Retired `run_toy_lookup.py` in favor of full wiki-based automation via `wiki_catalog_scraper_v2.py`
-- ✅ v3.3 – Updated README structure, added Table of Contents, removed legacy script references, and documented eBay pricing step
+- ✅ v1.0 – Manual rename & upload scripts
+- ✅ v2.0 – Folder automation via `watch_folder.py`
+- ✅ v2.3 – Flexible input fallback mode
+- ✅ v3.0 – Wiki scraper added with fuzzy matching + CSV log
+- ✅ v3.4 – Vision OCR batch processor added with Google Vision AI
+- ✅ v3.5 – Toy # detection with smart splitting (`M6916-0918K` → `M6916`)
+- ✅ v3.6 – Organized unmatched images & created logging for invalid photos
+- ✅ v3.7 – Added fallback `multi_image_renamer.py` for manual batch override
+- ✅ v3.8 – Fully dynamic Google Sheets image linking (columns M–Q)
