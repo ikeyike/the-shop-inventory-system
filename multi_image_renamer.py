@@ -1,16 +1,11 @@
 
 import os
 import subprocess
-import csv
 from shutil import copy2, move
 from PIL import Image
 
-TESTING_MODE = True
 INVALID_LOG = "invalid_images.log"
 PROCESSED_LOG = "processed_images.csv"
-
-GOOGLE_DRIVE_UPLOADS = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 
 def convert_heic_to_jpg_with_sips(heic_path, jpg_path):
     result = subprocess.run(["sips", "-s", "format", "jpeg", heic_path, "--out", jpg_path],
@@ -34,10 +29,8 @@ def log_invalid_image(path):
     print(f"❌ Invalid image skipped: {path}")
 
 def log_processed_folder(folder_name):
-    with open(PROCESSED_LOG, "a", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow([folder_name])
-    print(f"📝 Logged processed folder: {folder_name}")
+    with open(PROCESSED_LOG, "a") as f:
+        f.write(folder_name + "\n")
 
 def rename_and_organize_images(raw_folder, organized_folder):
     folder_name = os.path.basename(raw_folder.rstrip("/"))
@@ -55,26 +48,24 @@ def rename_and_organize_images(raw_folder, organized_folder):
 
         if ext == ".heic":
             convert_heic_to_jpg_with_sips(src, dst)
-            if not TESTING_MODE:
-                os.remove(src)
-                print(f"Deleted original HEIC: {src}")
+            os.remove(src)
+            print(f"Deleted original HEIC: {src}")
         else:
             if not is_valid_image(src):
                 log_invalid_image(src)
                 continue
+            move(src, dst)
+            print(f"Moved and renamed: {src} -> {dst}")
 
-            if TESTING_MODE:
-                copy2(src, dst)
-                print(f"[TEST MODE] Copied: {src} -> {dst}")
-            else:
-                move(src, dst)
-                print(f"Moved and deleted original: {src} -> {dst}")
-
-    log_processed_folder(folder_name)
+    log_processed_folder(identifier)
 
 if __name__ == "__main__":
-    for folder in os.listdir(GOOGLE_DRIVE_UPLOADS):
-        full_path = os.path.join(GOOGLE_DRIVE_UPLOADS, folder)
-        if os.path.isdir(full_path):
-            print(f"📦 Processing folder: {folder}")
-            rename_and_organize_images(full_path, ORG_FOLDER)
+    import sys
+    if len(sys.argv) >= 3:
+        raw_folder = sys.argv[1]
+        organized_folder = sys.argv[2]
+    else:
+        raw_folder = input("Enter the raw folder path: ").strip()
+        organized_folder = input("Enter the organized images path: ").strip()
+
+    rename_and_organize_images(raw_folder, organized_folder)
