@@ -11,7 +11,7 @@ client = vision.ImageAnnotatorClient()
 OCR_INPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/ocr_images"
 OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched_images"
-PROCESSED_LOG = "/Users/naomiabella/Desktop/the_shop_inventory/processed_log.txt"
+PROCESSED_LOG = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
 
 def extract_toy_number(text):
     match = re.search(r"\b([A-Z0-9]{5,})[-]", text, re.IGNORECASE)
