@@ -3,21 +3,48 @@ import os
 import re
 import shutil
 from google.cloud import vision
-from PIL import Image
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
+
 client = vision.ImageAnnotatorClient()
 
 OCR_INPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/ocr_images"
 OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
-UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched_images"
-PROCESSED_LOG = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
+UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
+LOG_FILE = "processed_images.csv"
+
+# Google Sheets setup
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+CREDENTIALS_FILE = 'credentials.json'
+SPREADSHEET_ID = '135derlsER5TZEdZ7kEIJQQ1G1Z6thpZfydFsnqkb9EM'
+SHEET_NAME = 'Inventory'
+TOY_COLUMN = 'A'
+VARIANT_COLUMN = 'M'
+
+def authenticate_google_sheets():
+    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+    return build('sheets', 'v4', credentials=creds)
+
+def get_variant_from_sheet(sheets_service, toy_number):
+    sheet = sheets_service.spreadsheets()
+    result = sheet.values().get(
+        spreadsheetId=SPREADSHEET_ID, 
+        range=f"{SHEET_NAME}!{TOY_COLUMN}:{VARIANT_COLUMN}"
+    ).execute()
+
+    values = result.get('values', [])
+    for row in values:
+        if row and len(row) >= 2 and row[0] == toy_number:
+            return row[1]
+
+    return "Unknown"
 
 def extract_toy_number(text):
-    match = re.search(r"\b([A-Z0-9]{5,})[-]", text, re.IGNORECASE)
-    if match:
-        return match.group(1).upper()
-    return None
+    # Extract Toy # (e.g., M6916-0918K)
+    match = re.search(r"\b([A-Z0-9]{5})[-][A-Z0-9]{4,5}\b", text, re.IGNORECASE)
+    return match.group(1) if match else None
 
 def ocr_text_from_image(image_path):
     with open(image_path, "rb") as img_file:
@@ -26,51 +53,48 @@ def ocr_text_from_image(image_path):
     response = client.text_detection(image=image)
     return response.full_text_annotation.text if response.text_annotations else ""
 
-def log_processed_image(path):
-    with open(PROCESSED_LOG, "a") as f:
-        f.write(path + "\n")
+def log_processed_image(image_path, toy_number, variant):
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{image_path},{toy_number},{variant}\n")
 
-def move_to_unmatched(images):
-    os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
-    for img in images:
-        dest = os.path.join(UNMATCHED_FOLDER, os.path.basename(img))
-        shutil.move(img, dest)
-        print(f"❌ Moved unmatched image to: {dest}")
-        log_processed_image(img)
+def move_images(images, toy_number, variant):
+    folder_name = f"{toy_number}-{variant}"
+    target_folder = os.path.join(OUTPUT_FOLDER, folder_name)
+    os.makedirs(target_folder, exist_ok=True)
 
-def process_batch(images):
+    for i, img_path in enumerate(images):
+        new_name = f"{toy_number}_{i + 1}.jpg"
+        dest_path = os.path.join(target_folder, new_name)
+        shutil.move(img_path, dest_path)
+        print(f"✅ Moved {img_path} to {dest_path}")
+        log_processed_image(dest_path, toy_number, variant)
+
+def process_batch(images, sheets_service):
     texts = [ocr_text_from_image(img) for img in images]
     toy_numbers = [extract_toy_number(text) for text in texts]
 
-    for i, toy in enumerate(toy_numbers):
-        if toy:
-            id = toy
-            other = images[1 - i]
-            labeled_images = [(other, f"{id}_1.jpg"), (images[i], f"{id}_2.jpg")]
-            target_folder = os.path.join(OUTPUT_FOLDER, id)
-            os.makedirs(target_folder, exist_ok=True)
-            for img_src, name in labeled_images:
-                dst = os.path.join(target_folder, name)
-                shutil.move(img_src, dst)
-                log_processed_image(img_src)
-                print(f"✅ Moved: {img_src} -> {dst}")
+    for toy_number in toy_numbers:
+        if toy_number:
+            variant = get_variant_from_sheet(sheets_service, toy_number)
+            move_images(images, toy_number, variant)
             return
-    print("⚠️ No toy number detected in batch.")
-    move_to_unmatched(images)
+
+    print("⚠️ No valid Toy # detected. Moving to unmatched folder.")
+    for img in images:
+        shutil.move(img, os.path.join(UNMATCHED_FOLDER, os.path.basename(img)))
 
 def main():
-    files = sorted([os.path.join(OCR_INPUT_FOLDER, f)
-                    for f in os.listdir(OCR_INPUT_FOLDER)
-                    if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))])
+    sheets_service = authenticate_google_sheets()
+
+    files = sorted([os.path.join(OCR_INPUT_FOLDER, f) for f in os.listdir(OCR_INPUT_FOLDER) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))])
 
     for i in range(0, len(files), 2):
         batch = files[i:i + 2]
         if len(batch) == 2:
             print(f"📸 Processing batch: {batch}")
-            process_batch(batch)
+            process_batch(batch, sheets_service)
         else:
             print(f"⚠️ Incomplete batch: {batch}")
-            move_to_unmatched(batch)
 
 if __name__ == "__main__":
     main()
