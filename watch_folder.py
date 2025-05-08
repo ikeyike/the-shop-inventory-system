@@ -10,7 +10,7 @@ PROCESSED_LOG = "processed_images.csv"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
 OCR_SCRIPT = "ocr_batch_google.py"
 SHEETS_SCRIPT = "google_sheets_linker.py"
-AUTO_RUN_SHEETS = True
+AUTO_RUN_SHEETS = False
 
 def load_processed_images():
     if not os.path.exists(PROCESSED_LOG):
