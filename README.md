@@ -1,3 +1,4 @@
+
 # 🏎️ The Shop Inventory System
 
 ## 📚 Table of Contents
@@ -65,7 +66,7 @@ the_shop_inventory/
    - Stores into: `organized_images/M6916/`
 
 4. **Optionally uploads to Drive**
-   - `google_sheets_linker.py` inserts image URLs into Google Sheet row matching Toy #
+   - `google_sheets_linker.py` inserts image URLs into Google Sheet row matching Toy # and Variant
 
 5. **Optional Catalog Info (auto or manual)**
    - `wiki_catalog_scraper_v2.py` fills in metadata like Collector #, Body Color, Country, etc.
