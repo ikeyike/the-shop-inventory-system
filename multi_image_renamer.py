@@ -1,71 +1,63 @@
-
 import os
-import subprocess
-from shutil import copy2, move
+import shutil
 from PIL import Image
+import re
 
-INVALID_LOG = "invalid_images.log"
+# Configuration
+RAW_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
+ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 PROCESSED_LOG = "processed_images.csv"
+UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
 
-def convert_heic_to_jpg_with_sips(heic_path, jpg_path):
-    result = subprocess.run(["sips", "-s", "format", "jpeg", heic_path, "--out", jpg_path],
-                            capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"Error converting {heic_path}: {result.stderr}")
-    else:
-        print(f"Converted HEIC to JPG: {heic_path} -> {jpg_path}")
+def log_processed_image(toy_number, variant):
+    with open(PROCESSED_LOG, "a") as log_file:
+        log_file.write(f"{toy_number},{variant}\n")
 
-def is_valid_image(image_path):
-    try:
-        with Image.open(image_path) as img:
-            img.verify()
-        return True
-    except Exception:
-        return False
+def extract_toy_and_variant(folder_name):
+    match = re.match(r"([A-Z0-9]{5,})[-_]?([A-Z0-9]{4,})?", folder_name, re.IGNORECASE)
+    if match:
+        toy_number = match.group(1).upper()
+        variant = match.group(2).upper() if match.group(2) else "NA"
+        return toy_number, variant
+    return None, None
 
-def log_invalid_image(path):
-    with open(INVALID_LOG, "a") as f:
-        f.write(path + "\n")
-    print(f"❌ Invalid image skipped: {path}")
+def process_folder(folder_path):
+    folder_name = os.path.basename(folder_path)
+    toy_number, variant = extract_toy_and_variant(folder_name)
 
-def log_processed_folder(folder_name):
-    with open(PROCESSED_LOG, "a") as f:
-        f.write(folder_name + "\n")
+    if not toy_number:
+        print(f"❌ No valid toy number found in folder: {folder_name}")
+        return
 
-def rename_and_organize_images(raw_folder, organized_folder):
-    folder_name = os.path.basename(raw_folder.rstrip("/"))
-    identifier = folder_name
-    target_folder = os.path.join(organized_folder, identifier)
+    target_folder = os.path.join(ORG_FOLDER, toy_number + "_" + variant)
     os.makedirs(target_folder, exist_ok=True)
 
-    image_files = [f for f in os.listdir(raw_folder) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))]
+    for file_name in os.listdir(folder_path):
+        src_path = os.path.join(folder_path, file_name)
+        if file_name.lower().endswith(('.jpg', '.jpeg', '.png', '.heic')):
+            dest_file_name = f"{toy_number}_{variant}.jpg"
+            dest_path = os.path.join(target_folder, dest_file_name)
 
-    for i, filename in enumerate(sorted(image_files), 1):
-        ext = os.path.splitext(filename)[1].lower()
-        src = os.path.join(raw_folder, filename)
-        new_filename = f"{identifier}_{i}.jpg"
-        dst = os.path.join(target_folder, new_filename)
+            try:
+                with Image.open(src_path) as img:
+                    img.verify()
 
-        if ext == ".heic":
-            convert_heic_to_jpg_with_sips(src, dst)
-            os.remove(src)
-            print(f"Deleted original HEIC: {src}")
-        else:
-            if not is_valid_image(src):
-                log_invalid_image(src)
-                continue
-            move(src, dst)
-            print(f"Moved and renamed: {src} -> {dst}")
+                shutil.move(src_path, dest_path)
+                print(f"✅ Moved: {src_path} -> {dest_path}")
+                log_processed_image(toy_number, variant)
 
-    log_processed_folder(identifier)
+            except Exception as e:
+                print(f"⚠️ Failed to process {src_path}: {e}")
+                unmatched_dest = os.path.join(UNMATCHED_FOLDER, file_name)
+                shutil.move(src_path, unmatched_dest)
+                print(f"Moved to unmatched: {unmatched_dest}")
+
+def main():
+    os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
+    for folder_name in os.listdir(RAW_FOLDER):
+        folder_path = os.path.join(RAW_FOLDER, folder_name)
+        if os.path.isdir(folder_path):
+            process_folder(folder_path)
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) >= 3:
-        raw_folder = sys.argv[1]
-        organized_folder = sys.argv[2]
-    else:
-        raw_folder = input("Enter the raw folder path: ").strip()
-        organized_folder = input("Enter the organized images path: ").strip()
-
-    rename_and_organize_images(raw_folder, organized_folder)
+    main()
