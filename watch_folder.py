@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import time
 import subprocess
@@ -15,11 +17,11 @@ def load_processed_images():
     if not os.path.exists(PROCESSED_LOG):
         return set()
     with open(PROCESSED_LOG, "r") as f:
-        return set(line.strip() for line in f.readlines())
+        return set(line.strip().split(",")[0] for line in f.readlines())
 
-def save_processed_image(image_path):
+def log_processed_image(image_path, toy_number, variant, status):
     with open(PROCESSED_LOG, "a") as f:
-        f.write(image_path + "\n")
+        f.write(f"{image_path},{toy_number},{variant},{status}\n")
 
 def get_new_images(processed):
     all_images = sorted([
@@ -50,8 +52,9 @@ def run_google_sheets_linker():
 def handle_ocr_failure(batch):
     print("⚠️ OCR failed. Moving to unmatched folder.")
     for img in batch:
-        shutil.move(img, os.path.join(UNMATCHED_FOLDER, os.path.basename(img)))
-        save_processed_image(img)
+        target_path = os.path.join(UNMATCHED_FOLDER, os.path.basename(img))
+        shutil.move(img, target_path)
+        log_processed_image(img, "NA", "NA", "Unmatched")
     print("🟡 Please run multi_image_renamer.py manually on this unmatched batch.")
 
 def main():
@@ -67,14 +70,14 @@ def main():
                 batch = new_images[:2]
                 print(f"📸 Found batch: {batch}")
 
-                ocr_folder = "/Users/naomiabella/Desktop/the_shop_inventory/ocr_images"
-                os.makedirs(ocr_folder, exist_ok=True)
-                for img in batch:
-                    move(img, os.path.join(ocr_folder, os.path.basename(img)))
-
                 success = run_ocr_batch()
+
                 if not success:
                     handle_ocr_failure(batch)
+                else:
+                    for img in batch:
+                        os.remove(img)
+                        print(f"🗑️ Deleted: {img}")
 
                 if AUTO_RUN_SHEETS and success:
                     run_google_sheets_linker()
