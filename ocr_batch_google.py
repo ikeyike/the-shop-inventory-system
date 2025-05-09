@@ -7,9 +7,7 @@ from googleapiclient.discovery import build
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
 
-client = vision.ImageAnnotatorClient()
-
-OCR_INPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/ocr_images"
+WATCH_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
 OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
 LOG_FILE = "processed_images.csv"
@@ -37,11 +35,9 @@ def get_variant_from_sheet(sheets_service, toy_number):
     for row in values:
         if row and len(row) >= 2 and row[0] == toy_number:
             return row[1]
-
     return "Unknown"
 
 def extract_toy_number(text):
-    # Extract Toy # (e.g., M6916-0918K)
     match = re.search(r"\b([A-Z0-9]{5})[-][A-Z0-9]{4,5}\b", text, re.IGNORECASE)
     return match.group(1) if match else None
 
@@ -52,9 +48,9 @@ def ocr_text_from_image(image_path):
     response = client.text_detection(image=image)
     return response.full_text_annotation.text if response.text_annotations else ""
 
-def log_processed_image(image_path, toy_number, variant):
+def log_processed_image(image_path, toy_number, variant, status):
     with open(LOG_FILE, "a") as f:
-        f.write(f"{image_path},{toy_number},{variant}\n")
+        f.write(f"{image_path},{toy_number},{variant},{status}\n")
 
 def move_images(images, toy_number, variant):
     folder_name = f"{toy_number}-{variant}"
@@ -64,9 +60,14 @@ def move_images(images, toy_number, variant):
     for i, img_path in enumerate(images):
         new_name = f"{toy_number}_{i + 1}.jpg"
         dest_path = os.path.join(target_folder, new_name)
-        shutil.move(img_path, dest_path)
-        print(f"✅ Moved {img_path} to {dest_path}")
-        log_processed_image(dest_path, toy_number, variant)
+
+        try:
+            shutil.move(img_path, dest_path)
+            log_processed_image(dest_path, toy_number, variant, "Processed")
+            print(f"✅ Moved {img_path} to {dest_path}")
+        except Exception as e:
+            print(f"⚠️ Error moving image {img_path}: {e}")
+            log_processed_image(img_path, toy_number, variant, "Error")
 
 def process_batch(images, sheets_service):
     texts = [ocr_text_from_image(img) for img in images]
@@ -80,12 +81,14 @@ def process_batch(images, sheets_service):
 
     print("⚠️ No valid Toy # detected. Moving to unmatched folder.")
     for img in images:
-        shutil.move(img, os.path.join(UNMATCHED_FOLDER, os.path.basename(img)))
+        unmatched_dest = os.path.join(UNMATCHED_FOLDER, os.path.basename(img))
+        shutil.move(img, unmatched_dest)
+        log_processed_image(unmatched_dest, "Unknown", "Unknown", "Unmatched")
 
 def main():
     sheets_service = authenticate_google_sheets()
 
-    files = sorted([os.path.join(OCR_INPUT_FOLDER, f) for f in os.listdir(OCR_INPUT_FOLDER) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))])
+    files = sorted([os.path.join(WATCH_FOLDER, f) for f in os.listdir(WATCH_FOLDER) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))])
 
     for i in range(0, len(files), 2):
         batch = files[i:i + 2]
