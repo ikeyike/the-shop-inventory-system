@@ -1,4 +1,4 @@
-git # 🏎️ The Shop Inventory System
+# 🏎️ The Shop Inventory System
 
 ## 📚 Table of Contents
 
