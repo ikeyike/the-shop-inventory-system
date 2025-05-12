@@ -8,6 +8,7 @@ RAW_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gma
 ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 PROCESSED_LOG = "processed_images.csv"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
+TESTING_MODE = True  # Toggle to prevent deletion of source images during testing
 
 def log_processed_image(file_path, toy_number, variant, status):
     """ Log each processed image with file path, toy number, variant, and status. """
@@ -19,12 +20,12 @@ def extract_toy_and_variant(folder_name):
     match = re.match(r"([A-Z0-9]{5,})[-_]?([A-Z0-9]{4,})?", folder_name, re.IGNORECASE)
     if match:
         toy_number = match.group(1).upper()
-        variant = match.group(2).upper() if match.group(2) else "NA"
+        variant = match.group(2).upper() if match.group(2) else ""
         return toy_number, variant
     return None, None
 
 def process_folder(folder_path):
-    """ Process each folder and move images to the organized folder structure. """
+    """ Process each folder and move or copy images to the organized folder structure. """
     folder_name = os.path.basename(folder_path)
     toy_number, variant = extract_toy_and_variant(folder_name)
 
@@ -33,12 +34,21 @@ def process_folder(folder_path):
         for file_name in os.listdir(folder_path):
             src_path = os.path.join(folder_path, file_name)
             unmatched_dest = os.path.join(UNMATCHED_FOLDER, file_name)
-            shutil.move(src_path, unmatched_dest)
+
+            if TESTING_MODE:
+                shutil.copy(src_path, unmatched_dest)
+            else:
+                shutil.move(src_path, unmatched_dest)
+
             log_processed_image(src_path, "Unknown", "Unknown", "Unmatched")
         return
 
     # Create target folder
-    target_folder = os.path.join(ORG_FOLDER, f"{toy_number}_{variant}")
+    target_folder_name = f"{toy_number}"
+    if variant:
+        target_folder_name += f"_{variant}"
+        
+    target_folder = os.path.join(ORG_FOLDER, target_folder_name)
     os.makedirs(target_folder, exist_ok=True)
 
     for file_name in os.listdir(folder_path):
@@ -49,22 +59,41 @@ def process_folder(folder_path):
                 with Image.open(src_path) as img:
                     img.verify()
 
-                new_name = f"{toy_number}_{variant}_{file_name}"
+                # Rename and move/copy the file
+                if variant:
+                    new_name = f"{toy_number}_{variant}_{file_name}"
+                else:
+                    new_name = f"{toy_number}_{file_name}"
+
                 dest_path = os.path.join(target_folder, new_name)
 
-                # Move and log only after successful processing
-                shutil.move(src_path, dest_path)
-                log_processed_image(dest_path, toy_number, variant, "Processed")
+                # Move or copy based on TESTING_MODE
+                if TESTING_MODE:
+                    shutil.copy(src_path, dest_path)
+                else:
+                    shutil.move(src_path, dest_path)
+
+                log_processed_image(dest_path, toy_number, variant if variant else "NA", "Processed")
                 print(f"✅ Processed: {src_path} -> {dest_path}")
 
             except Exception as e:
                 print(f"⚠️ Error processing {src_path}: {e}")
                 unmatched_dest = os.path.join(UNMATCHED_FOLDER, file_name)
-                shutil.move(src_path, unmatched_dest)
+
+                if TESTING_MODE:
+                    shutil.copy(src_path, unmatched_dest)
+                else:
+                    shutil.move(src_path, unmatched_dest)
+
                 log_processed_image(src_path, "Unknown", "Unknown", "Error")
         else:
             unmatched_dest = os.path.join(UNMATCHED_FOLDER, file_name)
-            shutil.move(src_path, unmatched_dest)
+
+            if TESTING_MODE:
+                shutil.copy(src_path, unmatched_dest)
+            else:
+                shutil.move(src_path, unmatched_dest)
+
             log_processed_image(src_path, "Unknown", "Unknown", "Unmatched")
 
 def main():
