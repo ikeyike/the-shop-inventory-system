@@ -5,13 +5,15 @@ from google.cloud import vision
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
+TESTING_MODE = True  # Toggle to prevent deletion of source images during testing
+
+# Configuration
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
 
 WATCH_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
 OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
 LOG_FILE = "processed_images.csv"
-TESTING_MODE = True  # Toggle to prevent deletion of source images during testing
 
 # Google Sheets setup
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -21,12 +23,15 @@ SHEET_NAME = 'Inventory'
 TOY_COLUMN = 'A'
 VARIANT_COLUMN = 'J'
 
+# Initialize the Google Vision Client
+client = vision.ImageAnnotatorClient()
+
 def authenticate_google_sheets():
     creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
     return build('sheets', 'v4', credentials=creds)
 
 def get_variant_from_sheet(sheets_service, toy_number):
-    """ Retrieve variant from Google Sheets based on Toy #. """
+    """Fetch the variant from Google Sheets based on the Toy #."""
     sheet = sheets_service.spreadsheets()
     result = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID, 
@@ -37,15 +42,16 @@ def get_variant_from_sheet(sheets_service, toy_number):
     for row in values:
         if row and len(row) >= 2 and row[0] == toy_number:
             return row[1]
+
     return "Unknown"
 
 def extract_toy_number(text):
-    """ Extract Toy # from OCR text. """
+    """Extract the Toy # from the OCR text."""
     match = re.search(r"\b([A-Z0-9]{5})[-][A-Z0-9]{4,5}\b", text, re.IGNORECASE)
     return match.group(1) if match else None
 
 def ocr_text_from_image(image_path):
-    """ Extract text from image using Google Vision API. """
+    """Extract text using Google Vision."""
     with open(image_path, "rb") as img_file:
         content = img_file.read()
     image = vision.Image(content=content)
@@ -53,16 +59,13 @@ def ocr_text_from_image(image_path):
     return response.full_text_annotation.text if response.text_annotations else ""
 
 def log_processed_image(image_path, toy_number, variant, status):
-    """ Log processed images with Toy #, Variant, and status. """
+    """Log processed images with [Image Path, Toy #, Variant, Status]."""
     with open(LOG_FILE, "a") as f:
         f.write(f"{image_path},{toy_number},{variant},{status}\n")
 
 def move_images(images, toy_number, variant):
-    """ Move or copy images to organized folder and log them. """
-    folder_name = f"{toy_number}"
-    if variant != "Unknown":
-        folder_name += f"_{variant}"
-        
+    """Move images to the organized folder and log the actions."""
+    folder_name = f"{toy_number}" if variant == "Unknown" else f"{toy_number}_{variant}"
     target_folder = os.path.join(OUTPUT_FOLDER, folder_name)
     os.makedirs(target_folder, exist_ok=True)
 
@@ -71,21 +74,21 @@ def move_images(images, toy_number, variant):
         dest_path = os.path.join(target_folder, new_name)
 
         try:
+            # Copy or Move based on TESTING_MODE
             if TESTING_MODE:
                 shutil.copy(img_path, dest_path)
-                print(f"🛠️ (TESTING MODE) Copied {img_path} to {dest_path}")
             else:
                 shutil.move(img_path, dest_path)
-                print(f"✅ Moved {img_path} to {dest_path}")
-
+                
             log_processed_image(dest_path, toy_number, variant, "Processed")
+            print(f"✅ Processed and logged: {img_path} -> {dest_path}")
 
         except Exception as e:
-            print(f"⚠️ Error moving image {img_path}: {e}")
+            print(f"⚠️ Error processing image {img_path}: {e}")
             log_processed_image(img_path, toy_number, variant, "Error")
 
 def process_batch(images, sheets_service):
-    """ Process batch of images. """
+    """Process a batch of images to extract Toy # and move accordingly."""
     texts = [ocr_text_from_image(img) for img in images]
     toy_numbers = [extract_toy_number(text) for text in texts]
 
@@ -95,24 +98,34 @@ def process_batch(images, sheets_service):
             move_images(images, toy_number, variant)
             return
 
+    # Handle unmatched images
     print("⚠️ No valid Toy # detected. Moving to unmatched folder.")
     for img in images:
         unmatched_dest = os.path.join(UNMATCHED_FOLDER, os.path.basename(img))
-
+        
+        # Copy or Move based on TESTING_MODE
         if TESTING_MODE:
             shutil.copy(img, unmatched_dest)
-            print(f"🛠️ (TESTING MODE) Copied {img} to {unmatched_dest}")
         else:
             shutil.move(img, unmatched_dest)
-            print(f"⚠️ Moved {img} to {unmatched_dest}")
-
+        
         log_processed_image(unmatched_dest, "Unknown", "Unknown", "Unmatched")
 
 def main():
+    """Main execution function."""
+    # Ensure folders are created before processing
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
+
     sheets_service = authenticate_google_sheets()
 
-    files = sorted([os.path.join(WATCH_FOLDER, f) for f in os.listdir(WATCH_FOLDER) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))])
+    # Collect images from the watch folder
+    files = sorted([
+        os.path.join(WATCH_FOLDER, f) for f in os.listdir(WATCH_FOLDER) 
+        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))
+    ])
 
+    # Process in batches of 2
     for i in range(0, len(files), 2):
         batch = files[i:i + 2]
         if len(batch) == 2:
