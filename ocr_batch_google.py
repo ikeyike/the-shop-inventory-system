@@ -31,7 +31,7 @@ def authenticate_google_sheets():
     return build('sheets', 'v4', credentials=creds)
 
 def get_variant_from_sheet(sheets_service, toy_number):
-    """Fetch the variant from Google Sheets based on the Toy #."""
+    """Fetch the actual variant from Google Sheets based on the Toy #."""
     sheet = sheets_service.spreadsheets()
     result = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID, 
@@ -41,9 +41,8 @@ def get_variant_from_sheet(sheets_service, toy_number):
     values = result.get('values', [])
     for row in values:
         if row and len(row) >= 2 and row[0] == toy_number:
-            return row[1]
-
-    return "Unknown"
+            return row[1] if row[1] else ""
+    return ""
 
 def extract_toy_number(text):
     """Extract the Toy # from the OCR text."""
@@ -65,7 +64,8 @@ def log_processed_image(image_path, toy_number, variant, status):
 
 def move_images(images, toy_number, variant):
     """Move images to the organized folder and log the actions."""
-    folder_name = f"{toy_number}" if variant == "Unknown" else f"{toy_number}_{variant}"
+    # Construct folder name based on the variant value
+    folder_name = f"{toy_number}_{variant}" if variant else f"{toy_number}"
     target_folder = os.path.join(OUTPUT_FOLDER, folder_name)
     os.makedirs(target_folder, exist_ok=True)
 
@@ -112,11 +112,6 @@ def process_batch(images, sheets_service):
         log_processed_image(unmatched_dest, "Unknown", "Unknown", "Unmatched")
 
 def main():
-    """Main execution function."""
-    # Ensure folders are created before processing
-    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-    os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
-
     sheets_service = authenticate_google_sheets()
 
     # Collect images from the watch folder
