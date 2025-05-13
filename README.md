@@ -1,3 +1,4 @@
+
 # 🏎️ The Shop Inventory System
 
 ## 📚 Table of Contents
@@ -63,6 +64,7 @@ the_shop_inventory/
    - If only **one image is present**, it waits for the second image before proceeding.
    - **Order of Images:**  
      - The first image in the batch is considered the **front**, and the second is considered the **back**.
+     - Multiple images can be uploaded, but they must be organized in sets of two for processing.
      - The Toy # is **only extracted from the back image** and applied to both images in the pair.
    - Logs each image's path, Toy #, Variant, and status (Processed/Unmatched/Error).
    - Deletes images only after logging.
@@ -81,6 +83,54 @@ the_shop_inventory/
 
 7. **Data Upload via `google_sheets_linker.py`**
    - Updates Google Sheets with image paths and variants.
+
+---
+
+## 🛠️ Optional: Auto-Start Configuration
+
+To automatically run `watch_folder.py` on macOS startup, follow these steps:
+
+1. **Create the .plist file:**
+   ```bash
+   touch ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
+   open -e ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
+   ```
+
+2. **Paste the following into the .plist file:**
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>Label</key>
+       <string>com.the_shop_inventory.watch_folder</string>
+       <key>ProgramArguments</key>
+       <array>
+           <string>/Users/yourusername/.pyenv/shims/python3</string>
+           <string>/Users/yourusername/Desktop/the_shop_inventory/the_shop_scripts/watch_folder.py</string>
+       </array>
+       <key>RunAtLoad</key>
+       <true/>
+       <key>KeepAlive</key>
+       <true/>
+   </dict>
+   </plist>
+   ```
+
+3. **Load the Launch Agent:**
+   ```bash
+   launchctl load ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
+   ```
+
+4. **Check the status:**
+   ```bash
+   launchctl list | grep com.the_shop_inventory.watch_folder
+   ```
+
+5. **To stop the Launch Agent:**
+   ```bash
+   launchctl unload ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
+   ```
 
 ---
 
