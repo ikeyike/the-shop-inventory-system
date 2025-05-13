@@ -6,8 +6,6 @@
 - [✅ Features](#-features)
 - [📁 Folder Structure](#-folder-structure)
 - [🚀 How It Works](#-how-it-works)
-- [🔧 Setup Instructions](#-setup-instructions)
-- [🛠️ Optional: Auto-Start Configuration](#-optional-auto-start-configuration)
 - [📌 Changelog](#-changelog)
 
 An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels, Matchbox, etc.). Designed for speed, accuracy, and full automation using iPhone photos, Google Drive, OCR (Vision AI), Python scripts, and a smart Google Sheet.
@@ -16,16 +14,14 @@ An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels,
 
 ## ✅ Features
 
-- OCR scans for toy numbers (e.g., `M6916-0918K`) from the **back image only**
-- Processes images in pairs (front and back) - Toy # is only extracted from the back image and applied to both
-- Renames & organizes photos into `organized_images/[Toy#-Variant]/`
-- Converts `.HEIC` → `.JPG` using macOS `sips`
-- Skips invalid or corrupted image files
-- Auto-upload to Google Drive with public links
-- Auto-update your Google Sheet with image URLs
-- Fully automated via `watch_folder.py`
-- Logs all actions, including unmatched and invalid photos, for review
-- Deletes images only after successful logging to `processed_images.csv`
+- **OCR Scanning:** Extracts Toy # from the back image only, formatted as `M6916-0918K`.
+- **Paired Image Processing:** Processes images in pairs (front and back) and applies the extracted Toy # to both images.
+- **Organized Image Storage:** Images are renamed and moved to `organized_images/[Toy#-Variant]/`.
+- **Image Conversion:** `.HEIC` → `.JPG` using macOS `sips`.
+- **Duplicate Handling:** Skips images already processed and logs them as "Duplicate".
+- **Unmatched Image Management:** Moves unmatched images to `/unmatched/` with logging.
+- **Error Logging:** Tracks errors in `processed_images.csv` with relevant status codes.
+- **Google Sheets Integration:** Updates Google Sheets with image paths and variants.
 
 ---
 
@@ -34,15 +30,13 @@ An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels,
 ```
 the_shop_inventory/
 ├── the_shop_scripts/
-│   ├── batch_processing.py             # New processing logic for paired images
-│   ├── ocr_batch_google.py
-│   ├── watch_folder.py
-│   ├── multi_image_renamer.py         # Fallback option if OCR fails
-│   ├── google_sheets_linker.py
-│   ├── processed_images.csv           # 📒 Tracks all handled files
-│   ├── unmatched/                     # 📂 Stores images with no toy # detected
-│   ├── invalid_images.log             # 🧯 Logs corrupted or unreadable images
-├── organized_images/                  # ✅ Final images sorted by Toy#-Variant
+│   ├── ocr_batch_google.py         # OCR + Google Sheets processing
+│   ├── multi_image_renamer.py      # Handles manual processing and unmatched images
+│   ├── google_sheets_linker.py     # Updates Google Sheets with image data
+│   ├── processed_images.csv        # Log file for processed images
+│   ├── unmatched/                  # Unmatched or unreadable images
+│   └── invalid_images.log          # Corrupted or unreadable files
+├── organized_images/               # Sorted by Toy#-Variant
 └── Google Drive/My Drive/TheShopRawUploads/
 ```
 
@@ -50,87 +44,27 @@ the_shop_inventory/
 
 ## 🚀 How It Works
 
-### 🧾 Step-by-Step Flow
+### 🧾 Step-by-Step Workflow
 
-1. **Take Two Photos**
-   - Photo 1: Front of the car (no toy # expected)
-   - Photo 2: Back of the card (includes toy # like `M6916-0918K`)
+1. **Image Capture:**
+   - Capture two photos per car: **front and back**.
+   - Ensure the Toy # is visible in the back image.
 
-2. **Upload via Google Drive**
-   - Upload both photos to `TheShopRawUploads` in Google Drive.
+2. **Upload to Google Drive:**
+   - Upload the image pair to `TheShopRawUploads`.
 
-3. **Batch Processing Logic in `watch_folder.py`:**
-   - Processes images **in pairs (front and back)**.
-   - If only **one image is present**, it waits for the second image before proceeding.
-   - **Order of Images:**  
-     - The first image in the batch is considered the **front**, and the second is considered the **back**.
-     - Multiple images can be uploaded, but they must be organized in sets of two for processing.
-     - The Toy # is **only extracted from the back image** and applied to both images in the pair.
-   - Logs each image's path, Toy #, Variant, and status (Processed/Unmatched/Error).
-   - Deletes images only after logging.
+3. **Processing via `ocr_batch_google.py`:**
+   - Extracts the Toy # from the back image using Google Vision OCR.
+   - Checks for duplicates using `processed_images.csv`.
+   - Renames and organizes images in `organized_images/[Toy#-Variant]/`.
+   - Logs processed images to `processed_images.csv`.
 
-4. **Image Processing via `ocr_batch_google.py`**
-   - Extracts Toy # and Variant from the back image.
-   - Renames and organizes images in the format `Toy#_1.jpg` (front) and `Toy#_2.jpg` (back).
-   - Moves images to `organized_images/[Toy#-Variant]/`.
+4. **Fallback Processing via `multi_image_renamer.py`:**
+   - Handles unmatched or errored images using folder names as Toy # and Variant.
+   - Ensures consistency in naming and organization.
 
-5. **Unmatched Handling:**
-   - If the Toy # is not detected in the back image, both images in the pair are moved to the `unmatched` folder.
-   - The pair is logged as "Unmatched" in `processed_images.csv`.
-
-6. **Fallback Option: `multi_image_renamer.py`**
-   - Handles images that fail OCR or require manual processing.
-
-7. **Data Upload via `google_sheets_linker.py`**
-   - Updates Google Sheets with image paths and variants.
-
----
-
-## 🛠️ Optional: Auto-Start Configuration
-
-To automatically run `watch_folder.py` on macOS startup, follow these steps:
-
-1. **Create the .plist file:**
-   ```bash
-   touch ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
-   open -e ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
-   ```
-
-2. **Paste the following into the .plist file:**
-   ```xml
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-       <key>Label</key>
-       <string>com.the_shop_inventory.watch_folder</string>
-       <key>ProgramArguments</key>
-       <array>
-           <string>/Users/yourusername/.pyenv/shims/python3</string>
-           <string>/Users/yourusername/Desktop/the_shop_inventory/the_shop_scripts/watch_folder.py</string>
-       </array>
-       <key>RunAtLoad</key>
-       <true/>
-       <key>KeepAlive</key>
-       <true/>
-   </dict>
-   </plist>
-   ```
-
-3. **Load the Launch Agent:**
-   ```bash
-   launchctl load ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
-   ```
-
-4. **Check the status:**
-   ```bash
-   launchctl list | grep com.the_shop_inventory.watch_folder
-   ```
-
-5. **To stop the Launch Agent:**
-   ```bash
-   launchctl unload ~/Library/LaunchAgents/com.the_shop_inventory.watch_folder.plist
-   ```
+5. **Data Sync with Google Sheets:**
+   - `google_sheets_linker.py` updates Google Sheets with image paths, Toy #, and Variant.
 
 ---
 
@@ -148,5 +82,8 @@ To automatically run `watch_folder.py` on macOS startup, follow these steps:
 - ✅ v3.9 – Simplified workflow; removed intermediate `ocr_images/` folder
 - ✅ v4.0 – Enhanced logging and deletion logic; files only deleted after successful logging
 - ✅ v4.1 – Optional auto-start configuration for `watch_folder.py` using Launch Agents
-- ✅ v4.2 – Updated batch processing to handle paired images (front and back) and apply Toy # from the back image to both.
+- ✅ v4.2 – Updated batch processing to handle paired images (front and back) and apply Toy #   from the back image to both.
 - ✅ v4.3 – Enhanced batch processing logic to wait for the second image and enforce front/back order processing.
+- ✅ v4.4 – Enhanced Toy # and Variant extraction with Google Sheets integration
+- ✅ v5.0 – Major workflow update: Removed watch_folder.py, restructured processing flow, centralized duplicate handling logic in ocr_batch_google.py and multi_image_renamer.py.
+
