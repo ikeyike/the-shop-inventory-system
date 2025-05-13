@@ -21,7 +21,7 @@ CREDENTIALS_FILE = 'credentials.json'
 SPREADSHEET_ID = '135derlsER5TZEdZ7kEIJQQ1G1Z6thpZfydFsnqkb9EM'
 SHEET_NAME = 'Inventory'
 TOY_COLUMN = 'A'
-VARIANT_COLUMN = 'J'
+VARIANT_COLUMN = 'M'
 
 # Initialize the Google Vision Client
 client = vision.ImageAnnotatorClient()
@@ -31,7 +31,7 @@ def authenticate_google_sheets():
     return build('sheets', 'v4', credentials=creds)
 
 def get_variant_from_sheet(sheets_service, toy_number):
-    """Fetch the actual variant from Google Sheets based on the Toy #."""
+    """Fetch the variant from Google Sheets based on the Toy #."""
     sheet = sheets_service.spreadsheets()
     result = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID, 
@@ -40,14 +40,19 @@ def get_variant_from_sheet(sheets_service, toy_number):
 
     values = result.get('values', [])
     for row in values:
-        if row and len(row) >= 2 and row[0] == toy_number:
-            return row[1] if row[1] else ""
+        if row and len(row) >= 13 and row[0] == toy_number:
+            variant = row[12].strip() if row[12] else ""
+            print(f"Google Sheets Variant for {toy_number}: {variant}")
+            return variant
+    print(f"No Variant found in Google Sheets for Toy #: {toy_number}")
     return ""
 
 def extract_toy_number(text):
     """Extract the Toy # from the OCR text."""
     match = re.search(r"\b([A-Z0-9]{5})[-][A-Z0-9]{4,5}\b", text, re.IGNORECASE)
-    return match.group(1) if match else None
+    toy_number = match.group(1) if match else None
+    print(f"Extracted Toy Number: {toy_number}")
+    return toy_number
 
 def ocr_text_from_image(image_path):
     """Extract text using Google Vision."""
@@ -64,8 +69,7 @@ def log_processed_image(image_path, toy_number, variant, status):
 
 def move_images(images, toy_number, variant):
     """Move images to the organized folder and log the actions."""
-    # Construct folder name based on the variant value
-    folder_name = f"{toy_number}_{variant}" if variant else f"{toy_number}"
+    folder_name = f"{toy_number}" if not variant else f"{toy_number}-{variant}"
     target_folder = os.path.join(OUTPUT_FOLDER, folder_name)
     os.makedirs(target_folder, exist_ok=True)
 
@@ -112,6 +116,9 @@ def process_batch(images, sheets_service):
         log_processed_image(unmatched_dest, "Unknown", "Unknown", "Unmatched")
 
 def main():
+    os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
     sheets_service = authenticate_google_sheets()
 
     # Collect images from the watch folder
