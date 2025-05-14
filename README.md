@@ -22,7 +22,9 @@ An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels,
 - **Duplicate Handling:** Skips images already processed and logs them as "Duplicate".  
 - **Unmatched Image Management:** Moves unmatched images to `/unmatched/` with logging.  
 - **Error Logging:** Tracks errors in `processed_images.csv` with relevant status codes.  
+- **Image and Folder Cleanup:** Automatically deletes images and folders in `TheShopRawUploads` after processing.  
 - **Google Sheets Integration:** Updates Google Sheets with image paths and variants.  
+- **Manual Variant Logging:** Allows manual logging of Toy # and Variant combinations using `multi_image_renamer.py` for unmatched or variant-specific entries.
 
 ---
 
@@ -41,7 +43,6 @@ the_shop_inventory/
 └── Google Drive/My Drive/TheShopRawUploads/
 ```
 
----
 ---
 
 ## 💻 Setting Up the Virtual Environment  
@@ -63,7 +64,7 @@ the_shop_inventory/
      ```
    - **Windows:**  
      ```bash
-     .\venv\Scripts\activate
+     .venv\Scripts\activate
      ```
 
 4. **Install Dependencies:**  
@@ -94,24 +95,30 @@ the_shop_inventory/
 
 1. **Image Capture:**  
    - Capture two photos per car: **front and back**.  
-   - Ensure the Toy # is visible in the back image.  
+   - Ensure the Toy # is clearly visible in the back image.  
 
 2. **Upload to Google Drive:**  
-   - Upload the image pair to `TheShopRawUploads`.
+   - Upload the image pair to `TheShopRawUploads`.  
 
-3. **Processing via `ocr_batch_google.py`:**  
+3. **Processing with `ocr_batch_google.py`:**  
    - Extracts the Toy # from the back image using Google Vision OCR.  
    - Checks for duplicates using `processed_images.csv`.  
    - Renames and organizes images in `organized_images/[Toy#-Variant]/`.  
-   - Logs processed images to `processed_images.csv`.
+   - Logs processed images to `processed_images.csv`.  
+   - **Deletion:** Images and folders are deleted from `TheShopRawUploads` after processing.  
 
-4. **Fallback Processing via `multi_image_renamer.py`:**  
-   - Handles unmatched or errored images using folder names as Toy # and Variant.  
-   - Ensures consistency in naming and organization.
+4. **Manual Variant Logging via `multi_image_renamer.py`:**  
+   - `ocr_batch_google.py` cannot distinguish between variants (e.g., color or edition),so use `multi_image_renamer.py`.  
+   - This script allows you to manually log the Toy#-Variant by creating a folder in `TheShopRawUploads` with the format `Toy#-Variant` (e.g., `29305-Red`).  
+   - Place all related images in the folder and run `multi_image_renamer.py`.  
+   - If the variant is not necessary, use only the Toy# as the folder name (e.g., `29305`).  
+   - The script applies the specified identifier, logs the files, and moves them to the correct target folder.  
+   - **Deletion:** After processing, both images and the source folder are deleted from `TheShopRawUploads`.  
 
 5. **Data Sync with Google Sheets:**  
-   - `google_sheets_linker.py` updates Google Sheets with image paths, Toy #, and Variant.
+   - `google_sheets_linker.py` updates Google Sheets with image paths, Toy #, and Variant.  
 
+---
 
 ## 📌 Changelog  
 
@@ -129,3 +136,9 @@ the_shop_inventory/
 - ✅ v5.0 – Major workflow update: Removed watch_folder.py, restructured processing flow,     
 centralized duplicate handling logic in ocr_batch_google.py and multi_image_renamer.py.  
 - ✅ v5.1 – Added virtual environment setup instructions to README.  
+- ✅ v5.2 – Enhanced folder cleanup after processing in `multi_image_renamer.py` and `ocr_batch_google.py.`
+- ✅ v5.3 – Improved error handling and logging consistency across all scripts.
+- ✅ v5.4 – Improved clarity and structure in README for variant logging and processing workflows.
+
+
+
