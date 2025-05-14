@@ -30,4 +30,5 @@ toy_metadata.py
 run_toy_lookup_clean.py
 
 #Due to issues with the continuous monitoring, will not use watch_folder.py
-watch_folder.py
+the_shop_scripts/watch_folder.py
+
