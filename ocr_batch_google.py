@@ -31,32 +31,6 @@ def log_processed_image(file_path, identifier, status):
     with open(LOG_FILE, "a") as log_file:
         log_file.write(f"{timestamp},{file_path},{identifier},{status}\n")
 
-# Check if the identifier has been logged as a duplicate before
-def is_first_duplicate(identifier):
-    duplicate_count = 0
-    try:
-        with open(LOG_FILE, "r") as log_file:
-            for line in log_file:
-                parts = line.strip().split(',')
-                if len(parts) >= 4 and parts[2] == identifier and parts[3] == "Duplicate":
-                    duplicate_count += 1
-    except FileNotFoundError:
-        open(LOG_FILE, "a").close()
-
-    return duplicate_count
-
-# Check if the identifier has already been processed
-def is_duplicate(identifier):
-    try:
-        with open(LOG_FILE, "r") as log_file:
-            for line in log_file:
-                parts = line.strip().split(',')
-                if len(parts) >= 4 and parts[2] == identifier and parts[3] == "Processed":
-                    return True
-    except FileNotFoundError:
-        open(LOG_FILE, "a").close()
-    return False
-
 # Extract Toy # from the OCR text
 def extract_toy_number(text):
     match = re.search(r"\b([A-Z0-9]{5})[-]([A-Z0-9]{4,5})\b", text, re.IGNORECASE)
@@ -83,8 +57,41 @@ def ocr_text_from_image(image_path):
     print(f"⚠️ No valid Toy # found in {image_path}")
     return None
 
+# Authenticate and return Google Sheets service
+def authenticate_google_sheets():
+    try:
+        creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+        print("✅ Google Sheets authenticated.")
+        return build('sheets', 'v4', credentials=creds)
+    except Exception as e:
+        print(f"⚠️ Error authenticating Google Sheets: {e}")
+        return None
+
+# Fetch variant from Google Sheets based on Toy #
+def get_variant_from_sheet(sheets_service, toy_number):
+    try:
+        sheet = sheets_service.spreadsheets()
+        result = sheet.values().get(
+            spreadsheetId=SPREADSHEET_ID,
+            range=f"{SHEET_NAME}!{TOY_COLUMN}:{VARIANT_COLUMN}"
+        ).execute()
+
+        values = result.get('values', [])
+        # Iterate through the rows to find the first matching entry
+        for row in values:
+            if row and len(row) >= 13 and row[0] == toy_number:
+                variant = row[12].strip() if row[12] else ""
+                print(f"✅ Matched Variant for {toy_number}: {variant}")
+                return variant
+
+    except Exception as e:
+        print(f"⚠️ Error accessing Google Sheets: {e}")
+
+    print(f"⚠️ No variant found for Toy #: {toy_number}. Defaulting to first entry without variant.")
+    return ""
+
 # Process a batch of images to extract Toy # and move accordingly
-def process_batch(images):
+def process_batch(images, sheets_service):
     print(f"📸 Processing batch: {images}")
 
     if len(images) != 2:
@@ -95,18 +102,8 @@ def process_batch(images):
     toy_number = ocr_text_from_image(back_image)
 
     if toy_number:
-        identifier = toy_number
-        duplicate_count = is_first_duplicate(identifier)
-
-        # Check for duplicates
-        if is_duplicate(identifier):
-            if duplicate_count < 2:
-                log_processed_image(front_image, identifier, "Duplicate")
-                log_processed_image(back_image, identifier, "Duplicate")
-                print(f"⚠️ Logged Duplicate 1 and 2 for {identifier}")
-            else:
-                print(f"⚠️ Subsequent Duplicate (Not Logged): {front_image}, {back_image}")
-            return
+        variant = get_variant_from_sheet(sheets_service, toy_number)
+        identifier = f"{toy_number}-{variant}" if variant else toy_number
 
         # Create target folder path
         target_folder = os.path.join(OUTPUT_FOLDER, identifier)
@@ -146,7 +143,7 @@ def process_batch(images):
                 print(f"⚠️ Error moving to unmatched: {e}")
 
 # Process images in the watch folder in pairs
-def process_images():
+def process_images(sheets_service):
     files = sorted([
         os.path.join(WATCH_FOLDER, f) for f in os.listdir(WATCH_FOLDER)
         if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic')) and not f.startswith('.') and f.lower() != "icon"
@@ -159,7 +156,7 @@ def process_images():
     for i in range(0, len(files), 2):
         batch = files[i:i + 2]
         if len(batch) == 2:
-            process_batch(batch)
+            process_batch(batch, sheets_service)
 
     return True
 
@@ -169,7 +166,13 @@ def main():
     os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-    if not process_images():
+    sheets_service = authenticate_google_sheets()
+
+    if not sheets_service:
+        print("⚠️ Google Sheets authentication failed. Exiting.")
+        return
+
+    if not process_images(sheets_service):
         print("Processing complete. Exiting.")
 
 if __name__ == "__main__":
