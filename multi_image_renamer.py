@@ -9,47 +9,39 @@ LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
 TESTING_MODE = True
 
+# Log processed images with timestamp
 def log_processed_image(file_path, identifier, status):
-    """Log processed images with timestamp."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a") as log_file:
         log_file.write(f"{timestamp},{file_path},{identifier},{status}\n")
 
+# Check if the identifier has been logged as a duplicate before
 def is_first_duplicate(identifier):
-    """Check if the identifier has been logged as a duplicate before."""
     try:
         with open(LOG_FILE, "r") as log_file:
             for line in log_file:
                 parts = line.strip().split(',')
-                if len(parts) < 4:
-                    continue
-                _, _, logged_identifier, status = parts
-                if logged_identifier == identifier and status == "Duplicate":
+                if len(parts) >= 4 and parts[2] == identifier and parts[3] == "Duplicate":
                     return False
     except FileNotFoundError:
         open(LOG_FILE, "a").close()
-
     return True
 
+# Check if the identifier has already been processed
 def is_duplicate(identifier):
-    """Check if the identifier has already been processed."""
     try:
         with open(LOG_FILE, "r") as log_file:
             for line in log_file:
                 parts = line.strip().split(',')
-                if len(parts) < 4:
-                    continue
-                _, _, logged_identifier, status = parts
-                if logged_identifier == identifier and status == "Processed":
+                if len(parts) >= 4 and parts[2] == identifier and parts[3] == "Processed":
                     return True
     except FileNotFoundError:
         open(LOG_FILE, "a").close()
-
     return False
 
+# Extract Toy # and Variant from the folder name
 def extract_toy_and_variant(folder_name):
     """
-    Extracts Toy # and Variant from the folder name.
     Expected formats:
     - 29305-Red → Toy # = 29305, Variant = Red
     - 29305 → Toy # = 29305, Variant = ""
@@ -65,13 +57,14 @@ def extract_toy_and_variant(folder_name):
     print(f"⚠️ No valid identifier found in folder name: {folder_name}")
     return None
 
+# Count the number of existing files in the target folder
 def count_existing_files(identifier):
-    """Count the number of existing files in the target folder."""
     target_folder = os.path.join(ORG_FOLDER, identifier)
     existing_files = os.listdir(target_folder) if os.path.exists(target_folder) else []
     count = len([f for f in existing_files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))])
     return count
 
+# Process a single folder
 def process_folder(folder_path):
     folder_name = os.path.basename(folder_path)
     identifier = extract_toy_and_variant(folder_name)
@@ -148,14 +141,20 @@ def process_folder(folder_path):
             print(f"⚠️ Error moving {src_path}: {e}")
             log_processed_image(src_path, "Unknown", "Error")
 
+# Main function to process all folders in the raw folder
 def main():
     print("Starting multi_image_renamer.py...")
     os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
     os.makedirs(ORG_FOLDER, exist_ok=True)
 
-    for folder_name in os.listdir(RAW_FOLDER):
-        folder_path = os.path.join(RAW_FOLDER, folder_name)
-        if os.path.isdir(folder_path):
+    while True:
+        folders = [f for f in os.listdir(RAW_FOLDER) if os.path.isdir(os.path.join(RAW_FOLDER, f))]
+        if not folders:
+            print("No new folders to process. Exiting...")
+            break
+
+        for folder_name in folders:
+            folder_path = os.path.join(RAW_FOLDER, folder_name)
             process_folder(folder_path)
 
 if __name__ == "__main__":
