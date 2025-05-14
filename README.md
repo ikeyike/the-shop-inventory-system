@@ -63,7 +63,7 @@ the_shop_inventory/
      ```
    - **Windows:**  
      ```bash
-     .env\Scriptsctivate
+     .\venv\Scripts\activate
      ```
 
 4. **Install Dependencies:**  
