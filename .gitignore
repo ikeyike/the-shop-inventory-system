@@ -5,16 +5,15 @@
 __pycache__/
 *.pyc
 
-# Google  and eBay API secrets
+# Google and eBay API secrets
 credentials.json
 google_vision_key.json
 .env
 
 # Ignore Python virtual environments
 venv/
-the_shop_scripts/venv/
 
-#eBay API token for price lookup
+# eBay API token for price lookup
 token.txt
 
 # IDE junk (VS Code, PyCharm, etc.)
@@ -29,6 +28,5 @@ token.txt
 toy_metadata.py
 run_toy_lookup_clean.py
 
-#Due to issues with the continuous monitoring, will not use watch_folder.py
-the_shop_scripts/watch_folder.py
-
+# Due to issues with the continuous monitoring, will not use watch_folder.py
+watch_folder.py
