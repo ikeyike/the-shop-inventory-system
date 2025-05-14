@@ -4,6 +4,7 @@ import shutil
 from google.cloud import vision
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from datetime import datetime
 
 TESTING_MODE = True  # Toggle to prevent deletion of source images during testing
 
@@ -13,7 +14,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
 WATCH_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
 OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
-LOG_FILE = "processed_images.csv"
+LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_FILE = 'credentials.json'
@@ -24,6 +25,44 @@ VARIANT_COLUMN = 'M'
 
 client = vision.ImageAnnotatorClient()
 
+def log_processed_image(file_path, identifier, status):
+    """Log processed images with timestamp."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(LOG_FILE, "a") as log_file:
+        log_file.write(f"{timestamp},{file_path},{identifier},{status}\n")
+
+def is_first_duplicate(identifier):
+    """Check if an identifier has been logged as a duplicate before."""
+    try:
+        with open(LOG_FILE, "r") as log_file:
+            for line in log_file:
+                parts = line.strip().split(',')
+                if len(parts) < 4:
+                    continue
+                _, _, logged_identifier, status = parts
+                if logged_identifier == identifier and status == "Duplicate":
+                    return False
+    except FileNotFoundError:
+        open(LOG_FILE, "a").close()
+
+    return True
+
+def is_duplicate(identifier):
+    """Check if the identifier has already been processed."""
+    try:
+        with open(LOG_FILE, "r") as log_file:
+            for line in log_file:
+                parts = line.strip().split(',')
+                if len(parts) < 4:
+                    continue
+                _, _, logged_identifier, status = parts
+                if logged_identifier == identifier and status == "Processed":
+                    return True
+    except FileNotFoundError:
+        open(LOG_FILE, "a").close()
+
+    return False
+
 def authenticate_google_sheets():
     """Authenticate and return Google Sheets service."""
     try:
@@ -33,25 +72,6 @@ def authenticate_google_sheets():
     except Exception as e:
         print(f"⚠️ Error authenticating Google Sheets: {e}")
         return None
-
-def log_processed_image(image_path, toy_number, variant, status):
-    """Log processed images with [Image Path, Toy #, Variant, Status]."""
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{image_path},{toy_number},{variant},{status}\n")
-
-def is_duplicate(toy_number, variant):
-    """Check if the Toy # and Variant are already logged as 'Processed'."""
-    try:
-        with open(LOG_FILE, "r") as log_file:
-            for line in log_file:
-                _, logged_toy_number, logged_variant, status = line.strip().split(',')
-                if logged_toy_number == toy_number and logged_variant == variant and status == "Processed":
-                    print(f"⚠️ Duplicate detected for {toy_number} - {variant}")
-                    return True
-    except FileNotFoundError:
-        open(LOG_FILE, "a").close()
-
-    return False
 
 def get_variant_from_sheet(sheets_service, toy_number):
     """Fetch the variant from Google Sheets based on the Toy #."""
@@ -76,9 +96,9 @@ def get_variant_from_sheet(sheets_service, toy_number):
     return ""
 
 def extract_toy_number(text):
-    """Extract the Toy # from the OCR text."""
-    match = re.search(r"\b([A-Z0-9]{5})[-][A-Z0-9]{4,5}\b", text, re.IGNORECASE)
-    return match.group(1) if match else None
+    """Extract Toy # from the OCR text."""
+    match = re.search(r"\b([A-Z0-9]{5})[-]([A-Z0-9]{4,5})\b", text, re.IGNORECASE)
+    return match.group(1).upper() if match else None
 
 def ocr_text_from_image(image_path):
     """Extract Toy # from the back image using Google Vision."""
@@ -88,54 +108,46 @@ def ocr_text_from_image(image_path):
         image = vision.Image(content=content)
         response = client.text_detection(image=image)
 
-        if not response.text_annotations:
-            print(f"⚠️ No text detected in {image_path}")
-            return ""
-
-        extracted_text = response.full_text_annotation.text
-        toy_number = extract_toy_number(extracted_text)
-        
-        if toy_number:
-            print(f"✅ Extracted Toy Number: {toy_number}")
-        else:
-            print(f"⚠️ No Toy # found in {image_path}")
-
-        return toy_number
+        if response.text_annotations:
+            extracted_text = response.full_text_annotation.text
+            toy_number = extract_toy_number(extracted_text)
+            return toy_number
 
     except Exception as e:
         print(f"⚠️ Error during OCR for {image_path}: {e}")
-        return ""
+    
+    return None
 
 def process_batch(images, sheets_service):
     """Process a batch of images to extract Toy # and move accordingly."""
     print(f"📸 Processing batch: {images}")
 
     if len(images) != 2:
-        print("⚠️ Incomplete batch detected. Skipping.")
+        print(f"⚠️ Incomplete batch detected: {images}")
         return
 
     front_image, back_image = images
-
-    # Extract Toy # from the back image
     toy_number = ocr_text_from_image(back_image)
 
     if toy_number:
-        # Get Variant from Google Sheets
         variant = get_variant_from_sheet(sheets_service, toy_number)
-        
+        identifier = f"{toy_number}-{variant}" if variant else toy_number
+
         # Check for duplicates
-        if is_duplicate(toy_number, variant):
-            for img in images:
-                log_processed_image(img, toy_number, variant, "Duplicate")
+        if is_duplicate(identifier):
+            if is_first_duplicate(identifier):
+                print(f"⚠️ First Duplicate Detected for {identifier}")
+                log_processed_image("N/A", identifier, "Duplicate")
+            else:
+                print(f"⚠️ Duplicate (Not Logged) for {identifier}")
             return
 
-        # Proceed with processing
-        folder_name = f"{toy_number}-{variant}" if variant else toy_number
-        target_folder = os.path.join(OUTPUT_FOLDER, folder_name)
+        # Construct target folder path
+        target_folder = os.path.join(OUTPUT_FOLDER, identifier)
         os.makedirs(target_folder, exist_ok=True)
 
         for i, img_path in enumerate(images):
-            new_name = f"{toy_number}_{i + 1}.jpg"
+            new_name = f"{identifier}_{i + 1}.jpg"
             dest_path = os.path.join(target_folder, new_name)
             print(f"✅ Moving {img_path} to {dest_path}")
 
@@ -145,10 +157,12 @@ def process_batch(images, sheets_service):
                 else:
                     shutil.move(img_path, dest_path)
 
-                log_processed_image(dest_path, toy_number, variant, "Processed")
+                log_processed_image(dest_path, identifier, "Processed")
+
             except Exception as e:
                 print(f"⚠️ Error moving {img_path}: {e}")
-                log_processed_image(img_path, toy_number, variant, "Error")
+                log_processed_image(img_path, "Unknown", "Error")
+
     else:
         print("⚠️ No Toy # detected. Moving to unmatched folder.")
         for img in images:
@@ -158,8 +172,7 @@ def process_batch(images, sheets_service):
                     shutil.copy(img, unmatched_dest)
                 else:
                     shutil.move(img, unmatched_dest)
-
-                log_processed_image(unmatched_dest, "Unknown", "Unknown", "Unmatched")
+                log_processed_image(unmatched_dest, "Unknown", "Unmatched")
             except Exception as e:
                 print(f"⚠️ Error moving to unmatched: {e}")
 
@@ -176,9 +189,8 @@ def main():
     try:
         files = sorted([
             os.path.join(WATCH_FOLDER, f) for f in os.listdir(WATCH_FOLDER)
-            if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic'))
+            if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic')) and not f.startswith('.') and f.lower() != "icon"
         ])
-        print(f"Files found for processing: {files}")
 
         for i in range(0, len(files), 2):
             batch = files[i:i + 2]
