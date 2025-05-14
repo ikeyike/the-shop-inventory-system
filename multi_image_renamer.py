@@ -86,18 +86,6 @@ def process_folder(folder_path):
                 log_processed_image(src_path, "Unknown", "Unmatched")
             except Exception as e:
                 print(f"⚠️ Error moving to unmatched: {e}")
-        # Delete the folder if empty
-        if not os.listdir(folder_path):
-            os.rmdir(folder_path)
-        return
-
-    # Check for duplicates
-    if is_duplicate(identifier):
-        if is_first_duplicate(identifier):
-            print(f"⚠️ First Duplicate Detected for {identifier}")
-            log_processed_image("N/A", identifier, "Duplicate")
-        else:
-            print(f"⚠️ Duplicate (Not Logged) for {identifier}")
 
         # Delete the folder if empty
         if not os.listdir(folder_path):
@@ -135,10 +123,15 @@ def process_folder(folder_path):
         file_index += 1
 
         # Construct the new file name using `_` separator
-        # Example: 29305_Red_1.jpg or 29305_1.jpg
         identifier_filename = identifier.replace("-", "_")
         new_name = f"{identifier_filename}_{file_index}.jpg"
         dest_path = os.path.join(target_folder, new_name)
+
+        # Check if the file already exists in the destination
+        if os.path.exists(dest_path):
+            print(f"⚠️ Duplicate detected, skipping: {dest_path}")
+            log_processed_image(src_path, identifier, "Duplicate")
+            continue
 
         print(f"✅ Moving {src_path} to {dest_path}")
 
