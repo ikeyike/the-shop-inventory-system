@@ -86,6 +86,9 @@ def process_folder(folder_path):
                 log_processed_image(src_path, "Unknown", "Unmatched")
             except Exception as e:
                 print(f"⚠️ Error moving to unmatched: {e}")
+        # Delete the folder if empty
+        if not os.listdir(folder_path):
+            os.rmdir(folder_path)
         return
 
     # Check for duplicates
@@ -95,6 +98,10 @@ def process_folder(folder_path):
             log_processed_image("N/A", identifier, "Duplicate")
         else:
             print(f"⚠️ Duplicate (Not Logged) for {identifier}")
+
+        # Delete the folder if empty
+        if not os.listdir(folder_path):
+            os.rmdir(folder_path)
         return
 
     # Create target folder with `-` separator
@@ -146,6 +153,14 @@ def process_folder(folder_path):
         except Exception as e:
             print(f"⚠️ Error moving {src_path}: {e}")
             log_processed_image(src_path, "Unknown", "Error")
+
+    # Delete the folder after processing all files
+    try:
+        if not os.listdir(folder_path):
+            os.rmdir(folder_path)
+            print(f"🗑️ Deleted empty folder: {folder_path}")
+    except Exception as e:
+        print(f"⚠️ Error deleting folder {folder_path}: {e}")
 
 def main():
     print("Starting multi_image_renamer.py...")
