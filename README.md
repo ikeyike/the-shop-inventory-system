@@ -5,8 +5,8 @@
 
 - [✅ Features](#-features)  
 - [📁 Folder Structure](#-folder-structure)  
-- [🚀 How It Works](#-how-it-works)  
 - [💻 Setting Up the Virtual Environment](#-setting-up-the-virtual-environment)  
+- [🚀 How It Works](#-how-it-works)  
 - [📌 Changelog](#-changelog)  
 
 An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels, Matchbox, etc.). Designed for speed, accuracy, and full automation using iPhone photos, Google Drive, OCR (Vision AI), Python scripts, and a smart Google Sheet.  
@@ -42,31 +42,6 @@ the_shop_inventory/
 ```
 
 ---
-
-## 🚀 How It Works  
-
-### 🧾 **Step-by-Step Workflow:**  
-
-1. **Image Capture:**  
-   - Capture two photos per car: **front and back**.  
-   - Ensure the Toy # is visible in the back image.  
-
-2. **Upload to Google Drive:**  
-   - Upload the image pair to `TheShopRawUploads`.
-
-3. **Processing via `ocr_batch_google.py`:**  
-   - Extracts the Toy # from the back image using Google Vision OCR.  
-   - Checks for duplicates using `processed_images.csv`.  
-   - Renames and organizes images in `organized_images/[Toy#-Variant]/`.  
-   - Logs processed images to `processed_images.csv`.
-
-4. **Fallback Processing via `multi_image_renamer.py`:**  
-   - Handles unmatched or errored images using folder names as Toy # and Variant.  
-   - Ensures consistency in naming and organization.
-
-5. **Data Sync with Google Sheets:**  
-   - `google_sheets_linker.py` updates Google Sheets with image paths, Toy #, and Variant.
-
 ---
 
 ## 💻 Setting Up the Virtual Environment  
@@ -113,6 +88,31 @@ the_shop_inventory/
 
 ---
 
+## 🚀 How It Works  
+
+### 🧾 **Step-by-Step Workflow:**  
+
+1. **Image Capture:**  
+   - Capture two photos per car: **front and back**.  
+   - Ensure the Toy # is visible in the back image.  
+
+2. **Upload to Google Drive:**  
+   - Upload the image pair to `TheShopRawUploads`.
+
+3. **Processing via `ocr_batch_google.py`:**  
+   - Extracts the Toy # from the back image using Google Vision OCR.  
+   - Checks for duplicates using `processed_images.csv`.  
+   - Renames and organizes images in `organized_images/[Toy#-Variant]/`.  
+   - Logs processed images to `processed_images.csv`.
+
+4. **Fallback Processing via `multi_image_renamer.py`:**  
+   - Handles unmatched or errored images using folder names as Toy # and Variant.  
+   - Ensures consistency in naming and organization.
+
+5. **Data Sync with Google Sheets:**  
+   - `google_sheets_linker.py` updates Google Sheets with image paths, Toy #, and Variant.
+
+
 ## 📌 Changelog  
 
 - ✅ v1.0 – Manual rename & upload scripts  
@@ -126,5 +126,6 @@ the_shop_inventory/
 - ✅ v3.8 – Google Sheets linking by Toy # and Variant (M–Q columns)  
 - ✅ v3.9 – Simplified workflow; removed intermediate `ocr_images/` folder  
 - ✅ v4.0 – Enhanced logging and deletion logic; files only deleted after successful logging  
-- ✅ v5.0 – Major workflow update: Removed watch_folder.py, restructured processing flow, centralized duplicate handling logic in ocr_batch_google.py and multi_image_renamer.py.  
+- ✅ v5.0 – Major workflow update: Removed watch_folder.py, restructured processing flow,     
+centralized duplicate handling logic in ocr_batch_google.py and multi_image_renamer.py.  
 - ✅ v5.1 – Added virtual environment setup instructions to README.  
