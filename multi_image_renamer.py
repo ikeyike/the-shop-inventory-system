@@ -4,8 +4,8 @@ import re
 from datetime import datetime
 
 RAW_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
-LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
+ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images!"
+LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images!.csv"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
 
 # Toggle to prevent deletion of source images during testing
@@ -33,10 +33,12 @@ def get_duplicate_count(identifier):
 
 # Extract Toy # and Variant from the folder name
 def extract_toy_and_variant(folder_name):
-    match = re.match(r"([A-Z0-9]{5})(?:[-_])?(.*)?", folder_name, re.IGNORECASE)
+    # Adjusted regex to handle 5-6 alphanumeric characters for Toy # and optional variant
+    match = re.match(r"([A-Z0-9]{5,6})(?:[-_])?(.*)?", folder_name, re.IGNORECASE)
+    
     if match:
         toy_number = match.group(1).upper()
-        variant = match.group(2) if match.group(2) else ""
+        variant = match.group(2).strip() if match.group(2) else ""
         identifier = f"{toy_number}-{variant}" if variant else toy_number
         print(f"✅ Extracted Identifier: {identifier}")
         return identifier
