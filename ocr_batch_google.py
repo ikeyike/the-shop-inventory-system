@@ -12,9 +12,9 @@ TESTING_MODE = True
 # Configuration
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
 WATCH_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
+OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images!"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
-LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
+LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images!.csv"
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_FILE = 'credentials.json'
@@ -25,16 +25,40 @@ VARIANT_COLUMN = 'M'
 
 client = vision.ImageAnnotatorClient()
 
-# Log processed images with timestamp and original file name
+# Ensure log file has headers
+def ensure_log_headers():
+    if not os.path.exists(LOG_FILE) or os.path.getsize(LOG_FILE) == 0:
+        with open(LOG_FILE, "w") as log_file:
+            log_file.write("Timestamp,File Path,Original Name,Identifier,Status\n")
+
+# Log processed images with timestamp
 def log_processed_image(file_path, original_name, identifier, status):
+    ensure_log_headers()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a") as log_file:
         log_file.write(f"{timestamp},{file_path},{original_name},{identifier},{status}\n")
 
-# Extract Toy # from the OCR text
+# Check if the identifier has already been processed
+def is_duplicate(identifier):
+    try:
+        with open(LOG_FILE, "r") as log_file:
+            for line in log_file:
+                parts = line.strip().split(',')
+                if len(parts) >= 5 and parts[3] == identifier and parts[4] == "Processed":
+                    return True
+    except FileNotFoundError:
+        open(LOG_FILE, "a").close()
+    return False
+
+# Extract Toy # from the OCR text (Only the part left of the dash)
 def extract_toy_number(text):
-    match = re.search(r"\b([A-Z0-9]{5})[-]([A-Z0-9]{4,5})\b", text, re.IGNORECASE)
-    return match.group(1).upper() if match else None
+    match = re.search(r"\b([A-Z0-9]{5})[-][A-Z0-9]{4,5}\b", text, re.IGNORECASE)
+    if match:
+        return match.group(1).upper()
+    else:
+        print(f"⚠️ Invalid Identifier Detected: {text.strip()}")
+        log_processed_image("N/A", "N/A", text.strip(), "Invalid")
+        return None
 
 # Extract Toy # from the back image using Google Vision
 def ocr_text_from_image(image_path):
@@ -45,7 +69,7 @@ def ocr_text_from_image(image_path):
         response = client.text_detection(image=image)
 
         if response.text_annotations:
-            extracted_text = response.full_text_annotation.text
+            extracted_text = response.full_text_annotation.text.strip()
             toy_number = extract_toy_number(extracted_text)
             if toy_number:
                 print(f"✅ Extracted Toy Number: {toy_number}")
@@ -86,7 +110,6 @@ def get_variant_from_sheet(sheets_service, toy_number):
     except Exception as e:
         print(f"⚠️ Error accessing Google Sheets: {e}")
 
-    print(f"⚠️ No variant found for Toy #: {toy_number}. Defaulting to first entry without variant.")
     return ""
 
 # Process a batch of images to extract Toy # and move accordingly
@@ -104,8 +127,13 @@ def process_batch(images, sheets_service):
     toy_number = ocr_text_from_image(back_image)
 
     if toy_number:
+        # Check for duplicates - only show in console, do not log
+        if is_duplicate(toy_number):
+            print(f"⚠️ Duplicate (Not Logged) for {toy_number}")
+            return
+
         variant = get_variant_from_sheet(sheets_service, toy_number)
-        identifier = f"{toy_number}-{variant}" if variant else toy_number
+        identifier = toy_number
 
         # Create target folder path
         target_folder = os.path.join(OUTPUT_FOLDER, identifier)
@@ -152,31 +180,20 @@ def process_images(sheets_service):
         if f.lower().endswith(('.jpg', '.jpeg', '.png', '.heic')) and not f.startswith('.') and f.lower() != "icon"
     ])
 
-    if not files:
-        print("No new images found. Exiting...")
-        return False
-
     for i in range(0, len(files), 2):
         batch = files[i:i + 2]
         if len(batch) == 2:
             process_batch(batch, sheets_service)
 
-    return True
-
-# Main function to initialize the processing flow
 def main():
-    print("Starting ocr_batch_google.py...")
+    print("Starting OCR Batch Processing...")
     os.makedirs(UNMATCHED_FOLDER, exist_ok=True)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
     sheets_service = authenticate_google_sheets()
 
-    if not sheets_service:
-        print("⚠️ Google Sheets authentication failed. Exiting.")
-        return
-
-    if not process_images(sheets_service):
-        print("Processing complete. Exiting.")
+    if sheets_service:
+        process_images(sheets_service)
 
 if __name__ == "__main__":
     main()
