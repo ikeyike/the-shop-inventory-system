@@ -31,19 +31,22 @@ def get_duplicate_count(identifier):
 
     return duplicate_count
 
-# Extract Toy # and Variant from the folder name
 def extract_toy_and_variant(folder_name):
-    # Modified regex to handle identifiers ending with a digit correctly
-    match = re.match(r"([A-Z0-9]{5,6})([-_])?(.*)?", folder_name, re.IGNORECASE)
+    # Adjusted regex to handle 5, 6, or 7 characters for toy number
+    match = re.match(r"^([A-Z0-9]{5,7})([-_])?(.*)$", folder_name, re.IGNORECASE)
+    
     if match:
         toy_number = match.group(1).upper()
         variant = match.group(3).strip() if match.group(3) else ""
+
         identifier = f"{toy_number}-{variant}" if variant else toy_number
         print(f"✅ Extracted Identifier: {identifier}")
         return identifier
 
     print(f"⚠️ No valid identifier found in folder name: {folder_name}")
     return None
+
+
 
 # Process a single folder
 def process_folder(folder_path):
