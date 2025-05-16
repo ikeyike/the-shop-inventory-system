@@ -4,33 +4,27 @@ import re
 from datetime import datetime
 
 RAW_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
-LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
+ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images!"
+LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images!.csv"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
 
 # Toggle to prevent deletion of source images during testing
 TESTING_MODE = True
 
+# Ensure log file has headers
+def ensure_log_headers():
+    if not os.path.exists(LOG_FILE) or os.path.getsize(LOG_FILE) == 0:
+        with open(LOG_FILE, "w") as log_file:
+            log_file.write("Timestamp,File Path,Original Name,Identifier,Status\n")
+
 # Log processed images with timestamp, original image name, and identifier
 def log_processed_image(file_path, original_name, identifier, status):
+    ensure_log_headers()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a") as log_file:
         log_file.write(f"{timestamp},{file_path},{original_name},{identifier},{status}\n")
 
-# Check how many duplicates have already been logged for this identifier
-def get_duplicate_count(identifier):
-    duplicate_count = 0
-    try:
-        with open(LOG_FILE, "r") as log_file:
-            for line in log_file:
-                parts = line.strip().split(',')
-                if len(parts) >= 5 and parts[3] == identifier and parts[4] == "Duplicate":
-                    duplicate_count += 1
-    except FileNotFoundError:
-        open(LOG_FILE, "a").close()
-
-    return duplicate_count
-
+# Extract Toy # and Variant from the folder name
 def extract_toy_and_variant(folder_name):
     # Adjusted regex to handle 5, 6, or 7 characters for toy number
     match = re.match(r"^([A-Z0-9]{5,7})([-_])?(.*)$", folder_name, re.IGNORECASE)
@@ -38,15 +32,12 @@ def extract_toy_and_variant(folder_name):
     if match:
         toy_number = match.group(1).upper()
         variant = match.group(3).strip() if match.group(3) else ""
-
         identifier = f"{toy_number}-{variant}" if variant else toy_number
         print(f"✅ Extracted Identifier: {identifier}")
         return identifier
 
     print(f"⚠️ No valid identifier found in folder name: {folder_name}")
     return None
-
-
 
 # Process a single folder
 def process_folder(folder_path):
@@ -81,7 +72,6 @@ def process_folder(folder_path):
     os.makedirs(target_folder, exist_ok=True)
 
     file_index = 1
-    duplicate_count = get_duplicate_count(identifier)
 
     for file_name in sorted(os.listdir(folder_path)):
         if file_name.startswith('.') or file_name.lower() in ["icon", "icon\r"]:
@@ -109,14 +99,9 @@ def process_folder(folder_path):
         new_name = f"{identifier_filename}_{file_index}.jpg"
         dest_path = os.path.join(target_folder, new_name)
 
-        # Handle duplicates without logging
+        # Handle duplicates - print but do not log
         if os.path.exists(dest_path):
-            print(f"⚠️ Duplicate detected: {src_path}")
-            if duplicate_count < 2:
-                duplicate_count += 1
-                print(f"⚠️ Logged Duplicate {duplicate_count} for {identifier}")
-            else:
-                print(f"⚠️ Subsequent Duplicate (Not Logged): {src_path}")
+            print(f"⚠️ Duplicate detected (Not Logged): {src_path}")
             continue
 
         # Move and log
