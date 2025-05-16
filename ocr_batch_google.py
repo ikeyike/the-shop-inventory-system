@@ -7,7 +7,7 @@ from googleapiclient.discovery import build
 from datetime import datetime
 
 # Toggle to prevent deletion of source images during testing
-TESTING_MODE = False
+TESTING_MODE = True
 
 # Configuration
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
@@ -25,11 +25,11 @@ VARIANT_COLUMN = 'M'
 
 client = vision.ImageAnnotatorClient()
 
-# Log processed images with timestamp
-def log_processed_image(file_path, identifier, status):
+# Log processed images with timestamp and original file name
+def log_processed_image(file_path, original_name, identifier, status):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a") as log_file:
-        log_file.write(f"{timestamp},{file_path},{identifier},{status}\n")
+        log_file.write(f"{timestamp},{file_path},{original_name},{identifier},{status}\n")
 
 # Extract Toy # from the OCR text
 def extract_toy_number(text):
@@ -77,7 +77,6 @@ def get_variant_from_sheet(sheets_service, toy_number):
         ).execute()
 
         values = result.get('values', [])
-        # Iterate through the rows to find the first matching entry
         for row in values:
             if row and len(row) >= 13 and row[0] == toy_number:
                 variant = row[12].strip() if row[12] else ""
@@ -99,6 +98,9 @@ def process_batch(images, sheets_service):
         return
 
     front_image, back_image = images
+    front_original_name = os.path.basename(front_image)
+    back_original_name = os.path.basename(back_image)
+
     toy_number = ocr_text_from_image(back_image)
 
     if toy_number:
@@ -110,7 +112,7 @@ def process_batch(images, sheets_service):
         os.makedirs(target_folder, exist_ok=True)
 
         # Move images to target folder
-        for i, img_path in enumerate(images):
+        for i, (img_path, original_name) in enumerate([(front_image, front_original_name), (back_image, back_original_name)]):
             new_name = f"{identifier}_{i + 1}.jpg"
             dest_path = os.path.join(target_folder, new_name)
             print(f"✅ Moving {img_path} to {dest_path}")
@@ -121,23 +123,24 @@ def process_batch(images, sheets_service):
                 else:
                     shutil.move(img_path, dest_path)
 
-                log_processed_image(dest_path, identifier, "Processed")
+                log_processed_image(dest_path, original_name, identifier, "Processed")
 
             except Exception as e:
                 print(f"⚠️ Error moving {img_path}: {e}")
-                log_processed_image(img_path, "Unknown", "Error")
+                log_processed_image(img_path, original_name, "Unknown", "Error")
 
     else:
         print("⚠️ No Toy # detected. Moving to unmatched folder.")
         for img in images:
-            unmatched_dest = os.path.join(UNMATCHED_FOLDER, os.path.basename(img))
+            original_name = os.path.basename(img)
+            unmatched_dest = os.path.join(UNMATCHED_FOLDER, original_name)
             try:
                 if TESTING_MODE:
                     shutil.copy(img, unmatched_dest)
                 else:
                     shutil.move(img, unmatched_dest)
 
-                log_processed_image(unmatched_dest, "Unknown", "Unmatched")
+                log_processed_image(unmatched_dest, original_name, "Unknown", "Unmatched")
 
             except Exception as e:
                 print(f"⚠️ Error moving to unmatched: {e}")
