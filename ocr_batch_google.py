@@ -12,9 +12,9 @@ TESTING_MODE = True
 # Configuration
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
 WATCH_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images!"
+OUTPUT_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
 UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
-LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images!.csv"
+LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images.csv"
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_FILE = 'credentials.json'
