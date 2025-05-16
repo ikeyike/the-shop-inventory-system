@@ -33,10 +33,11 @@ def get_duplicate_count(identifier):
 
 # Extract Toy # and Variant from the folder name
 def extract_toy_and_variant(folder_name):
-    match = re.match(r"([A-Z0-9]{5,6})(?:[-_])?(.*)?", folder_name, re.IGNORECASE)
+    # Modified regex to handle identifiers ending with a digit correctly
+    match = re.match(r"([A-Z0-9]{5,6})([-_])?(.*)?", folder_name, re.IGNORECASE)
     if match:
         toy_number = match.group(1).upper()
-        variant = match.group(2).strip() if match.group(2) else ""
+        variant = match.group(3).strip() if match.group(3) else ""
         identifier = f"{toy_number}-{variant}" if variant else toy_number
         print(f"✅ Extracted Identifier: {identifier}")
         return identifier
@@ -105,10 +106,10 @@ def process_folder(folder_path):
         new_name = f"{identifier_filename}_{file_index}.jpg"
         dest_path = os.path.join(target_folder, new_name)
 
+        # Handle duplicates without logging
         if os.path.exists(dest_path):
             print(f"⚠️ Duplicate detected: {src_path}")
             if duplicate_count < 2:
-                log_processed_image(src_path, file_name, identifier, "Duplicate")
                 duplicate_count += 1
                 print(f"⚠️ Logged Duplicate {duplicate_count} for {identifier}")
             else:
@@ -129,6 +130,7 @@ def process_folder(folder_path):
             print(f"⚠️ Error moving {src_path}: {e}")
             log_processed_image(src_path, file_name, "Unknown", "Error")
 
+    # Clean up empty folder
     try:
         if not os.listdir(folder_path):
             os.rmdir(folder_path)
