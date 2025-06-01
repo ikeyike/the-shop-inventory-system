@@ -72,7 +72,7 @@ def process_images(folder_path, sheets_service):
 if __name__ == "__main__":
     sheets_service, _ = authenticate_google_services()
     
-    base_folder = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images"
+    base_folder = "/Users/ikeyike/Desktop/the_shop_inventory/organized_images"
     for folder_name in os.listdir(base_folder):
         folder_path = os.path.join(base_folder, folder_name)
         if os.path.isdir(folder_path):
