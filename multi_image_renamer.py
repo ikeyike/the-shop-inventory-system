@@ -3,10 +3,10 @@ import shutil
 import re
 from datetime import datetime
 
-RAW_FOLDER = "/Users/naomiabella/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-ORG_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/organized_images!"
-LOG_FILE = "/Users/naomiabella/Desktop/the_shop_inventory/processed_images!.csv"
-UNMATCHED_FOLDER = "/Users/naomiabella/Desktop/the_shop_inventory/unmatched"
+RAW_FOLDER = "/Users/ikeyike/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
+ORG_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/organized_images"
+LOG_FILE = "/Users/ikeyike/Desktop/the_shop_inventory/processed_images.csv"
+UNMATCHED_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/unmatched"
 
 # Toggle to prevent deletion of source images during testing
 TESTING_MODE = True
