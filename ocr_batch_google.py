@@ -13,9 +13,9 @@ TESTING_MODE = True
 # Configuration paths
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
 WATCH_FOLDER = "/Users/ikeyike/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-OUTPUT_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/organized_images!"
+OUTPUT_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/organized_images"
 UNMATCHED_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/unmatched"
-LOG_FILE = "/Users/ikeyike/Desktop/the_shop_inventory/processed_images!.csv"
+LOG_FILE = "/Users/ikeyike/Desktop/the_shop_inventory/processed_images.csv"
 
 # Google Sheets configuration
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
