@@ -23,7 +23,7 @@ CREDENTIALS_FILE = 'credentials.json'
 SPREADSHEET_ID = '135derlsER5TZEdZ7kEIJQQ1G1Z6thpZfydFsnqkb9EM'
 SHEET_NAME = 'Inventory'
 TOY_COLUMN = 'A'
-VARIANT_COLUMN = 'M'
+VARIANT_COLUMN = 'J'
 
 # Google Vision Client
 client = vision.ImageAnnotatorClient()
@@ -146,8 +146,8 @@ def get_variant_from_sheet(sheets_service, toy_number):
         ).execute()
         values = result.get('values', [])
         for row in values:
-            if row and len(row) >= 13 and row[0] == toy_number:
-                variant = row[12].strip() if row[12] else ""
+            if row and len(row) >= 10 and row[0] == toy_number:
+                variant = row[9].strip() if row[9] else ""
                 print(f"✅ Matched Variant: {variant}")
                 return variant
     except Exception as e:
