@@ -13,9 +13,9 @@ TESTING_MODE = True
 # Configuration paths
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_vision_key.json"
 WATCH_FOLDER = "/Users/ikeyike/Library/CloudStorage/GoogleDrive-thetrueepg@gmail.com/My Drive/TheShopRawUploads"
-OUTPUT_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/organized_images"
+OUTPUT_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/organized_images!"
 UNMATCHED_FOLDER = "/Users/ikeyike/Desktop/the_shop_inventory/unmatched"
-LOG_FILE = "/Users/ikeyike/Desktop/the_shop_inventory/processed_images.csv"
+LOG_FILE = "/Users/ikeyike/Desktop/the_shop_inventory/processed_images!.csv"
 
 # Google Sheets configuration
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -83,7 +83,7 @@ def is_duplicate(identifier):
         open(LOG_FILE, "a").close()
     return False
 
-# --- OCR ---
+# --- OCR Extraction Logic ---
 def extract_toy_number(text):
     text = re.sub(r"Asst\.\s*[A-Z0-9]{4,7}", "", text, flags=re.IGNORECASE)
 
@@ -101,22 +101,30 @@ def extract_toy_number(text):
         if re.fullmatch(r"[0-9]{5,6}", match):
             return match
 
-    print(f"⚠️ No valid toy number found in text: {text}")
-    log_processed_image("N/A", "N/A", text.strip(), "Invalid")
     return None
 
+# --- Google OCR Integration ---
 def ocr_google(image_path):
     try:
         with open(image_path, "rb") as img_file:
             content = img_file.read()
         image = vision.Image(content=content)
         response = client.text_detection(image=image)
+
         if response.text_annotations:
             extracted_text = response.full_text_annotation.text.strip()
-            print(f"\n🧾 Google OCR Raw Text:\n{extracted_text}\n")
-            return extract_toy_number(extracted_text)
+            toy_number = extract_toy_number(extracted_text)
+
+            if toy_number:
+                print(f"✅ OCR Match: Toy # {toy_number}")
+                return toy_number
+            else:
+                print("⚠️ OCR found text, but no Toy # matched.")
+                return None
+        else:
+            print("❌ No text detected by OCR.")
     except Exception as e:
-        print(f"⚠️ Google OCR error: {e}")
+        print(f"❌ OCR Error: {e}")
     return None
 
 # --- Google Sheets ---
@@ -174,7 +182,8 @@ def process_batch(images, sheets_service):
         target_folder = os.path.join(OUTPUT_FOLDER, identifier)
         os.makedirs(target_folder, exist_ok=True)
 
-        for i, (img_path, original_name) in enumerate([(front_image, front_image), (back_image, back_image)]):
+        for i, img_path in enumerate([front_image, back_image]):
+            original_name = os.path.basename(img_path)
             new_name = f"{identifier}_{i + 1}.jpg"
             dest_path = os.path.join(target_folder, new_name)
             print(f"✅ Moving {img_path} to {dest_path}")
