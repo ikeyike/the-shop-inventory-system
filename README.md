@@ -1,4 +1,3 @@
-
 # 🏎️ The Shop Inventory System  
 
 ## 📚 Table of Contents  
@@ -8,23 +7,24 @@
 - [💻 Setting Up the Virtual Environment](#-setting-up-the-virtual-environment)  
 - [🚀 How It Works](#-how-it-works)  
 - [📌 Changelog](#-changelog)  
+- [🕰️ Legacy Version](#-legacy-version)
 
-An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels, Matchbox, etc.). Designed for speed, accuracy, and full automation using iPhone photos, Google Drive, OCR (Vision AI), Python scripts, and a smart Google Sheet.  
+An advanced automation system for cataloging diecast cars (Hot Wheels, Matchbox, etc.) with real-time Google Sheets integration, Google Drive storage, and OCR detection. Built for batch processing, fallback resilience, and a clean upgrade path.
 
 ---
 
 ## ✅ Features  
 
-- **OCR Scanning:** Extracts Toy # from the back image only, formatted as `M6916-0918K`.  
-- **Paired Image Processing:** Processes images in pairs (front and back) and applies the extracted Toy # to both images.  
-- **Organized Image Storage:** Images are renamed and moved to `organized_images/[Toy#-Variant]/`.  
-- **Image Conversion:** `.HEIC` → `.JPG` using macOS `sips`.  
-- **Duplicate Handling:** Skips images already processed and logs them as "Duplicate".  
-- **Unmatched Image Management:** Moves unmatched images to `/unmatched/` with logging.  
-- **Error Logging:** Tracks errors in `processed_images.csv` with relevant status codes.  
-- **Image and Folder Cleanup:** Automatically deletes images and folders in `TheShopRawUploads` after processing.  
-- **Google Sheets Integration:** Updates Google Sheets with image paths and variants.  
-- **Manual Variant Logging:** Allows manual logging of Toy # and Variant combinations using `multi_image_renamer.py` for unmatched or variant-specific entries.
+- **OCR Toy # Extraction** from back-of-package text (e.g., `M6916-0918K`)  
+- **Folder-Based Pair Handling** (e.g., `29289-Black`) to identify Toy # and Variant  
+- **Drive Uploads** with public URLs using real file IDs  
+- **✔ Sheet Flagging** with a checkmark once upload is complete  
+- **Smart Matching Logic:** OCR fallback with image splitting, barcode scanning, and `toy_lookup.json`  
+- **Unmatched Routing** for OCR failures (sends to `/unmatched`)  
+- **Clean Archiving** of processed folders  
+- **Modern Logging System:** `uploaded_to_sheet_log.csv` for traceability  
+- **Manual Override Script:** `multi_image_renamer.py` for user-defined control  
+- **Variant Booster:** `variant_flagger.py` creates folders and helps sort by variant faster
 
 ---
 
@@ -33,112 +33,106 @@ An automated image-to-inventory pipeline for diecast car collectors (Hot Wheels,
 ```
 the_shop_inventory/
 ├── the_shop_scripts/
-│   ├── ocr_batch_google.py         # OCR + Google Sheets processing
-│   ├── multi_image_renamer.py      # Handles manual processing and unmatched images
-│   ├── google_sheets_linker.py     # Updates Google Sheets with image data
-│   ├── processed_images.csv        # Log file for processed images
-│   ├── unmatched/                  # Unmatched or unreadable images
-│   └── invalid_images.log          # Corrupted or unreadable files
-├── organized_images/               # Sorted by Toy#-Variant
-└── Google Drive/My Drive/TheShopRawUploads/
+│   ├── google_sheets_linker.py     # Uploads images and updates Sheet
+│   ├── ocr_batch_google.py         # OCR + fallback logic
+│   ├── multi_image_renamer.py      # Manual override fallback
+│   ├── variant_flagger.py          # Pre-fills variant folders for you
+│   ├── requirements.txt            # Python packages
+│   ├── toy_lookup.json             # Barcode to Toy # backup
+│   ├── unmatched/                  # OCR failures or unrecognized
+│   └── uploaded_to_sheet_log.csv   # Master log of uploads
+│
+├── organized_images/               # Final image storage (Toy#-Variant)
+├── archive/                        # Successfully processed folders
+└── Google Drive/My Drive/TheShopRawUploads/  # iPhone uploads go here
 ```
 
 ---
 
 ## 💻 Setting Up the Virtual Environment  
 
-1. **Navigate to the Project Directory:**
-   ```bash
-   cd /path/to/the_shop_inventory/the_shop_scripts
-   ```
+```bash
+cd the_shop_inventory/the_shop_scripts
+python3 -m venv venv
+source venv/bin/activate  # macOS/Linux
+# OR
+venv\Scripts\activate   # Windows
 
-2. **Create a Virtual Environment:**
-   ```bash
-   python3 -m venv venv
-   ```
+pip install -r requirements.txt
+```
 
-3. **Activate the Virtual Environment:**  
-   - **macOS/Linux:**  
-     ```bash
-     source venv/bin/activate
-     ```
-   - **Windows:**  
-     ```bash
-     .venv\Scripts\activate
-     ```
+To update dependencies:
+```bash
+pip freeze > requirements.txt
+```
 
-4. **Install Dependencies:**  
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. **Verify Installation:**  
-   ```bash
-   pip list
-   ```
-
-6. **Updating `requirements.txt`:**  
-   ```bash
-   pip freeze > requirements.txt
-   ```
-
-7. **Deactivating the Virtual Environment:**  
-   ```bash
-   deactivate
-   ```
+To exit:
+```bash
+deactivate
+```
 
 ---
 
 ## 🚀 How It Works  
 
-### 🧾 **Step-by-Step Workflow:**  
+### 🧾 Step-by-Step Workflow  
 
-1. **Image Capture:**  
-   - Capture two photos per car: **front and back**.  
-   - Ensure the Toy # is clearly visible in the back image.  
+1. **Upload to `/TheShopRawUploads/`:**  
+   - Folder must follow format `29289-Variant` (e.g., `29289-Black`)  
+   - Includes 2 images: front and back  
 
-2. **Upload to Google Drive:**  
-   - Upload the image pair to `TheShopRawUploads`.  
+2. **Run `google_sheets_linker.py`:**  
+   - Extracts Toy # and Variant from folder name  
+   - Uploads both images to Drive  
+   - Generates public URLs and adds them to columns N and O  
+   - Inserts ✔ into column P once successful  
+   - Archives the folder and logs to `uploaded_to_sheet_log.csv`  
 
-3. **Processing with `ocr_batch_google.py`:**  
-   - Extracts the Toy # from the back image using Google Vision OCR.  
-   - Checks for duplicates using `processed_images.csv`.  
-   - Renames and organizes images in `organized_images/[Toy#-Variant]/`.  
-   - Logs processed images to `processed_images.csv`.  
-   - **Deletion:** Images and folders are deleted from `TheShopRawUploads` after processing.  
+3. **If Toy # is unknown:**  
+   - Run `ocr_batch_google.py` to try OCR on the back image  
+   - If it fails, script tries:
+     - Splitting the image
+     - Reading the barcode
+     - Looking it up in `toy_lookup.json`  
+   - Moves unmatchable cases to `/unmatched/`  
 
-4. **Manual Variant Logging via `multi_image_renamer.py`:**  
-   - `ocr_batch_google.py` cannot distinguish between variants (e.g., color or edition),so use `multi_image_renamer.py`.  
-   - This script allows you to manually log the Toy#-Variant by creating a folder in `TheShopRawUploads` with the format `Toy#-Variant` (e.g., `29305-Red`).  
-   - Place all related images in the folder and run `multi_image_renamer.py`.  
-   - If the variant is not necessary, use only the Toy# as the folder name (e.g., `29305`).  
-   - The script applies the specified identifier, logs the files, and moves them to the correct target folder.  
-   - **Deletion:** After processing, both images and the source folder are deleted from `TheShopRawUploads`.  
+4. **Manual Processing:**  
+   - Run `multi_image_renamer.py`  
+   - This lets you specify the Toy # and Variant manually via folder name  
+   - Ideal for unique cases, test runs, or OCR bypass  
 
-5. **Data Sync with Google Sheets:**  
-   - `google_sheets_linker.py` updates Google Sheets with image paths, Toy #, and Variant.  
+5. **Speed Up Sorting:**  
+   - Run `variant_flagger.py`  
+   - Automatically creates folders like `29289-Red` from Google Sheet data  
+   - Helps you prep image batches faster and avoid typing folder names manually  
 
 ---
 
 ## 📌 Changelog  
 
-- ✅ v1.0 – Manual rename & upload scripts  
-- ✅ v2.0 – Folder automation via `watch_folder.py`  
-- ✅ v2.3 – Input fallback mode for manual processing  
-- ✅ v3.0 – Wiki scraper added with fuzzy matching + CSV log  
-- ✅ v3.4 – Vision OCR batch processor added with Google Vision AI  
-- ✅ v3.5 – Toy # detection with smart splitting (`M6916-0918K` → `M6916`)  
-- ✅ v3.6 – Unmatched images moved to `/unmatched/` with logging  
-- ✅ v3.7 – `multi_image_renamer.py` added as a fallback for unmatched processing  
-- ✅ v3.8 – Google Sheets linking by Toy # and Variant (M–Q columns)  
-- ✅ v3.9 – Simplified workflow; removed intermediate `ocr_images/` folder  
-- ✅ v4.0 – Enhanced logging and deletion logic; files only deleted after successful logging  
-- ✅ v5.0 – Major workflow update: Removed watch_folder.py, restructured processing flow,     
-centralized duplicate handling logic in ocr_batch_google.py and multi_image_renamer.py.  
-- ✅ v5.1 – Added virtual environment setup instructions to README.  
-- ✅ v5.2 – Enhanced folder cleanup after processing in `multi_image_renamer.py` and `ocr_batch_google.py.`
-- ✅ v5.3 – Improved error handling and logging consistency across all scripts.
-- ✅ v5.4 – Improved clarity and structure in README for variant logging and processing workflows.
+- ✅ v1.0 – Base system (manual folder rename + upload)
+- ✅ v2.0 – Organized renaming & archiving
+- ✅ v3.0 – Google Sheets sync integration
+- ✅ v4.0 – OCR automation with fallback image splitting
+- ✅ v5.0 – Barcode fallback & lookup JSON support
+- ✅ v5.1 – Manual override (`multi_image_renamer.py`)
+- ✅ v5.2 – Introduced `uploaded_to_sheet_log.csv` logging
+- ✅ v5.3 – ✔ flag added to Sheets for completed rows
+- ✅ v5.4 – Archive cleanup after upload success
+- ✅ v5.5 – Added `.env` support for sensitive Drive credentials
+- ✅ v5.6 – `variant_flagger.py` speeds up sorting + folder creation
+- ✅ v5.7 – Final legacy version preserved
+- 🚀 v6.0+ – New system version by Partner with future enhancements
 
+---
 
+## 🕰️ Legacy Version
 
+The original automation flow (v1.0–v5.7) was developed by **Ike**, and included Google Vision OCR, manual renaming tools, and Google Sheets integration.
+
+This legacy version is fully functional and preserved in the `legacy-version` branch:  
+🔗 [View on GitHub](https://github.com/yourrepo/tree/legacy-version) *(replace with real link)*
+
+As of v6.0+, the project is being restructured and improved by **Roberto** for enhanced performance and long-term scalability. We will colaborate and use that moving forward.
+
+---
