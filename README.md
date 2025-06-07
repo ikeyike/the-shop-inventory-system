@@ -122,7 +122,7 @@ deactivate
 - ✅ v5.5 – Added `.env` support for sensitive Drive credentials
 - ✅ v5.6 – `variant_flagger.py` speeds up sorting + folder creation
 - ✅ v5.7 – Final legacy version preserved
-- 🚀 v6.0+ – New system version by Partner with future enhancements
+- 🚀 v6.0+ – New system version by Roberto with future enhancements
 
 ---
 
