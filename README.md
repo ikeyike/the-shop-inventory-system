@@ -130,9 +130,8 @@ deactivate
 
 The original automation flow (v1.0–v5.7) was developed by **Ike**, and included Google Vision OCR, manual renaming tools, and Google Sheets integration.
 
-This legacy version is fully functional and preserved in the `legacy-version` branch:  
-🔗 [View on GitHub](https://github.com/yourrepo/tree/legacy-version) *(replace with real link)*
+This legacy version is fully functional and preserved in this repo.
 
-As of v6.0+, the project is being restructured and improved by **Roberto** for enhanced performance and long-term scalability. We will colaborate and use that moving forward.
+As of v6.0+, the project is being restructured and improved by **Roberto** for enhanced performance and long-term scalability. We will colaborate and use that moving forward. You can access that [here:](https://github.com/rcm-webdev/the-shop) 
 
 ---
